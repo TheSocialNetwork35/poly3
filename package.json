@@ -1,0 +1,23 @@
+{
+  "name": "polyviewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "runtime:prepare": "node scripts/prepare-runtime.mjs",
+    "dev": "npm run runtime:prepare && vite",
+    "build": "npm run runtime:prepare && tsc --noEmit && tsc --noEmit -p functions/tsconfig.json && vite build && node scripts/verify-build.mjs",
+    "preview": "vite preview --port 4173",
+    "preview:pages": "node scripts/preview-pages.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260810.1",
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.120.1"
+  }
+}

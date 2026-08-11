@@ -1,0 +1,71 @@
+@font-face {
+  font-family: "Forced Square";
+  src: url("/forced_square.woff2") format("woff2");
+  font-display: swap;
+}
+
+.polyviewer-shell {
+  --pv-blue: #4b7dff;
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  z-index: 100000;
+  box-sizing: border-box;
+  width: min(310px, calc(100vw - 28px));
+  padding: 14px;
+  border: 2px solid rgb(255 255 255 / 16%);
+  border-radius: 8px;
+  color: white;
+  background: linear-gradient(145deg, rgb(27 36 78 / 96%), rgb(15 20 46 / 94%));
+  box-shadow: 0 16px 44px rgb(0 0 0 / 34%);
+  font-family: "Forced Square", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(14px);
+  user-select: none;
+}
+
+.polyviewer-shell.is-active {
+  border-color: rgb(75 125 255 / 75%);
+  box-shadow: 0 0 0 1px rgb(75 125 255 / 24%), 0 16px 44px rgb(0 0 0 / 38%);
+}
+
+.polyviewer-title {
+  margin-bottom: 11px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.polyviewer-title span { color: var(--pv-blue); }
+.polyviewer-title small { color: rgb(255 255 255 / 48%); font-size: 10px; }
+
+.polyviewer-toggle {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 5px;
+  color: white;
+  background: var(--pv-blue);
+  box-shadow: inset 0 -3px rgb(0 0 0 / 18%);
+  font: inherit;
+  cursor: pointer;
+}
+
+.polyviewer-toggle:hover { filter: brightness(1.1); }
+.polyviewer-toggle:disabled { cursor: not-allowed; filter: grayscale(1); }
+.polyviewer-toggle kbd { float: right; color: rgb(255 255 255 / 70%); font: inherit; }
+
+.polyviewer-status {
+  min-height: 28px;
+  padding: 10px 2px 4px;
+  color: rgb(255 255 255 / 68%);
+  font: 12px/1.35 system-ui, sans-serif;
+}
+
+.polyviewer-shell.has-error .polyviewer-status { color: #ff8585; }
+.polyviewer-shell details { margin-top: 5px; border-top: 1px solid rgb(255 255 255 / 10%); }
+.polyviewer-shell summary { padding: 10px 2px 4px; color: rgb(255 255 255 / 72%); font-size: 12px; cursor: pointer; }
+.polyviewer-shell dl { margin: 6px 0 0; font: 11px/1.4 system-ui, sans-serif; }
+.polyviewer-shell dl div { display: flex; justify-content: space-between; gap: 16px; padding: 3px 2px; }
+.polyviewer-shell dt { color: rgb(255 255 255 / 45%); }
+.polyviewer-shell dd { margin: 0; color: rgb(255 255 255 / 84%); }
