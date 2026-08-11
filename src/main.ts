@@ -3,17 +3,27 @@ import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ShortcutManager } from "./polyviewer/input/ShortcutManager";
 import { CleanPreviewController } from "./polyviewer/preview/CleanPreviewController";
+import { DeterministicFrameRenderer } from "./polyviewer/render/DeterministicFrameRenderer";
+import { VideoExporter } from "./polyviewer/render/VideoExporter";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
 import { SceneEvaluator } from "./polyviewer/scene/SceneEvaluator";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
+import { RenderPanel } from "./polyviewer/ui/RenderPanel";
 
 const masterTimeline = new MasterTimeline();
 const cameraPoints = new CameraKeyframeStore();
 let cameraController: FreeCameraController | null = null;
 let selectedCameraPointId: string | null = null;
 let shell: EditorShell;
+let videoExporter: VideoExporter | null = null;
+const renderPanel = new RenderPanel({
+  onRender: (settings, signal, onProgress) => {
+    if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
+    return videoExporter.export(settings, { signal, onProgress });
+  },
+});
 const cleanPreview = new CleanPreviewController(document, (enabled) => shell.setCleanPreview(enabled));
 shell = new EditorShell({
   onCameraModeChange: (mode) => cameraController?.setMode(mode),
@@ -35,6 +45,7 @@ shell = new EditorShell({
   onReplayOffsetChange: (id, offsetMilliseconds) => replayBridge?.setReplayOffset(id, offsetMilliseconds),
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),
+  onOpenRender: () => renderPanel.open(masterTimeline.durationMicroseconds),
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -77,6 +88,7 @@ void waitForPolyTrackBridge()
       onChange: (status) => {
         replayTimeline.update(status);
         shell.setReplays(status.connected, status.replays);
+        shell.setRenderAvailable(status.connected && status.durationMicroseconds > 0);
         if (status.active) sceneEvaluator?.evaluatePreview(status.timeMicroseconds);
         if (status.durationMicroseconds !== replayDurationMicroseconds) {
           replayTimeline.setCameraPoints(cameraPoints.points);
@@ -105,6 +117,8 @@ void waitForPolyTrackBridge()
       replayBridge,
       cameraController,
     );
+    const frameRenderer = new DeterministicFrameRenderer(bridge.renderer, sceneEvaluator);
+    videoExporter = new VideoExporter(frameRenderer, bridge.canvas);
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
       cameraController?.dispose();

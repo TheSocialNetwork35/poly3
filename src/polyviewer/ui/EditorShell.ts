@@ -16,6 +16,7 @@ interface EditorShellOptions {
   onReplayOffsetChange?: (id: string, offsetMilliseconds: number) => void;
   onRemoveReplay?: (id: string) => void;
   onToggleCleanPreview?: () => void;
+  onOpenRender?: () => void;
 }
 
 export class EditorShell {
@@ -33,6 +34,7 @@ export class EditorShell {
   #replayList: HTMLElement;
   #replays: PolyViewerReplaySummary[] = [];
   #cleanPreviewButton: HTMLButtonElement;
+  #renderButton: HTMLButtonElement;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -41,6 +43,7 @@ export class EditorShell {
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
       <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F6</kbd></button>
       <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F7</kbd></button>
+      <button class="polyviewer-render-button" type="button">Render</button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
       <div class="polyviewer-camera-modes" aria-label="Camera mode">
         <span>Camera</span>
@@ -101,11 +104,14 @@ export class EditorShell {
     const toggle = this.element.querySelector<HTMLButtonElement>(".polyviewer-toggle");
     const status = this.element.querySelector<HTMLElement>(".polyviewer-status");
     const cleanPreviewButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-clean-preview-button");
-    if (!toggle || !status || !cleanPreviewButton) throw new Error("Failed to construct the PolyViewer editor shell.");
+    const renderButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-render-button");
+    if (!toggle || !status || !cleanPreviewButton || !renderButton) throw new Error("Failed to construct the PolyViewer editor shell.");
     this.toggleButton = toggle;
     this.#status = status;
     this.#cleanPreviewButton = cleanPreviewButton;
+    this.#renderButton = renderButton;
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
+    renderButton.addEventListener("click", () => options.onOpenRender?.());
     this.#modeButtons = Array.from(
       this.element.querySelectorAll<HTMLButtonElement>("[data-camera-mode]"),
     );
@@ -207,6 +213,10 @@ export class EditorShell {
   setCleanPreview(enabled: boolean): void {
     this.#cleanPreviewButton.classList.toggle("is-selected", enabled);
     this.#cleanPreviewButton.setAttribute("aria-pressed", String(enabled));
+  }
+
+  setRenderAvailable(available: boolean): void {
+    this.#renderButton.disabled = !available;
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {

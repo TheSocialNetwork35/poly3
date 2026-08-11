@@ -14,13 +14,14 @@ export interface RenderedFrame {
   total: number;
   timestampMicroseconds: number;
   durationMicroseconds: number;
-  image: Blob;
+  image?: Blob;
 }
 
 export interface FrameRenderOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
   onFrame: (frame: RenderedFrame) => void | Promise<void>;
+  captureImage?: boolean;
 }
 
 export class DeterministicFrameRenderer {
@@ -53,7 +54,9 @@ export class DeterministicFrameRenderer {
         const nextTimestamp = frameTimeMicroseconds(index + 1, settings.startMicroseconds, settings.fps);
         if (index > 0) this.#sceneEvaluator.evaluateRenderFrame(timestamp, true);
         this.#renderer.polyviewerRenderFrame();
-        const image = await canvasToBlob(this.#renderer.canvas);
+        const image = options.captureImage === false
+          ? undefined
+          : await canvasToBlob(this.#renderer.canvas);
         await options.onFrame({
           index,
           total,

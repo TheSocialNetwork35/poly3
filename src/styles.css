@@ -71,6 +71,21 @@
 .polyviewer-shell.is-active .polyviewer-clean-preview-button { display: block; }
 .polyviewer-clean-preview-button.is-selected { border-color: rgb(75 125 255 / 70%); color: white; background: rgb(75 125 255 / 30%); }
 .polyviewer-clean-preview-button kbd { float: right; color: rgb(255 255 255 / 55%); font: inherit; }
+.polyviewer-render-button {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 7px;
+  padding: 9px 10px;
+  border: 1px solid rgb(75 125 255 / 70%);
+  border-radius: 5px;
+  color: white;
+  background: rgb(75 125 255 / 26%);
+  font: 11px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-shell.is-active .polyviewer-render-button { display: block; }
+.polyviewer-render-button:disabled { cursor: not-allowed; opacity: 0.35; }
 
 body.polyviewer-clean-preview #ui {
   visibility: hidden !important;
@@ -83,6 +98,32 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   visibility: visible !important;
   pointer-events: auto !important;
 }
+
+.polyviewer-render-dialog {
+  width: min(370px, calc(100vw - 32px));
+  padding: 0;
+  border: 2px solid rgb(75 125 255 / 70%);
+  border-radius: 8px;
+  color: white;
+  background: #121936;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 60%);
+  font-family: "Forced Square", system-ui, sans-serif;
+}
+.polyviewer-render-dialog::backdrop { background: rgb(0 0 0 / 65%); backdrop-filter: blur(3px); }
+.polyviewer-render-dialog form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 18px; }
+.polyviewer-render-dialog strong,
+.polyviewer-render-dialog progress,
+.polyviewer-render-dialog p,
+.polyviewer-render-dialog form > div { grid-column: 1 / -1; }
+.polyviewer-render-dialog strong { font-size: 17px; }
+.polyviewer-render-dialog label { display: grid; gap: 6px; color: rgb(255 255 255 / 60%); font: 11px/1 system-ui, sans-serif; }
+.polyviewer-render-dialog select { padding: 8px; border: 1px solid rgb(255 255 255 / 15%); border-radius: 4px; color: white; background: #1a2349; }
+.polyviewer-render-dialog progress { width: 100%; accent-color: var(--pv-blue, #4b7dff); }
+.polyviewer-render-status { min-height: 30px; margin: 0; color: rgb(255 255 255 / 70%); font: 11px/1.35 system-ui, sans-serif; }
+.polyviewer-render-dialog form > div { display: flex; justify-content: flex-end; gap: 7px; }
+.polyviewer-render-dialog button { padding: 9px 12px; border: 0; border-radius: 4px; color: white; background: rgb(255 255 255 / 12%); cursor: pointer; }
+.polyviewer-render-dialog [data-render-submit] { background: var(--pv-blue, #4b7dff); }
+.polyviewer-render-dialog button:disabled { opacity: 0.4; cursor: wait; }
 
 .polyviewer-status {
   min-height: 28px;

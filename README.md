@@ -21,8 +21,9 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
 - Preview and future export now share one `SceneEvaluator` for Camera Point evaluation. Its exact-frame path can synchronously advance the native replay in one-millisecond steps through real `Car.setCarState`, `Car.update`, and native camera updates.
 - The deterministic frame renderer uses rational integer timestamps, pre-rolls visual history, temporarily configures the real PolyTrack WebGL renderer at the requested output size, captures frames sequentially, supports cancellation/progress, and restores editor time/playback plus renderer size/aspect in `finally`.
+- **Render** offers 1080p, 1440p, or 4K at 30/60 FPS. WebCodecs encodes the exact canvas frames in quality mode and Mediabunny muxes them into a downloadable MP4 with real timestamps, progress, cancellation, codec capability detection, and no screen recording.
 
-The 5/10/20-car performance qualification, project files, and encoded downloadable video export are not yet presented as finished features. The frame renderer is complete, but the Render button remains withheld until Stage 16 can deliver a real muxed video rather than a folder of PNG placeholders.
+The 5/10/20-car performance qualification and project save/load are not yet presented as finished features. Video export is available only when the current browser exposes a compatible WebCodecs encoder; unsupported browsers receive an explicit error instead of a fake realtime fallback.
 
 ## Upstream online-service limitation
 
