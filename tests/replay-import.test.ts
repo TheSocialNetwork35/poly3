@@ -43,4 +43,22 @@ describe("parseReplayImport", () => {
     });
     expect(parseReplayImport('{recording: "abc"}')).toEqual({ recording: "abc" });
   });
+
+  it("automatically identifies recording and CarStyle without field names", () => {
+    const recording = `eN${"a".repeat(70)}`;
+    const carStyle = "AAAAAP___wAAAAAAAP___w";
+    expect(parseReplayImport(`${carStyle}\n${recording}`)).toEqual({ recording, carStyle });
+    expect(parseReplayImport(JSON.stringify({ data: recording, appearance: carStyle }))).toEqual({
+      recording,
+      carStyle,
+    });
+  });
+
+  it("accepts bare recordings inside replay arrays and explains a bare CarStyle", () => {
+    const recording = `eN${"b".repeat(60)}`;
+    expect(parseReplayImports(JSON.stringify([recording]))).toEqual([
+      { payload: { recording }, name: undefined },
+    ]);
+    expect(() => parseReplayImport("AAAAAP___wAAAAAAAP___w")).toThrow(/CarStyle/);
+  });
 });

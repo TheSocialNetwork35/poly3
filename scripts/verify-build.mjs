@@ -34,6 +34,9 @@ if (!bundle.includes("nativeCameraPose={position:")) {
 if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.deserialize(pvRecordingString.trim())")) {
   throw new Error("The production bundle does not contain the verified native replay importer.");
 }
+if (!bundle.includes("pvRequestedFrames=pvReplay.durationFrames") || bundle.includes("durationOverrideFrames")) {
+  throw new Error("Imported leaderboard frame metadata can still alter the authoritative shot duration.");
+}
 if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvEntry.car.update(.001)")) {
   throw new Error("The production bundle does not contain exact native frame evaluation.");
 }

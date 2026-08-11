@@ -17,7 +17,11 @@ function replayManagementMethods() {
     }],
     getCar: () => fakeCar,
     getNativeCameraPose: () => null,
-    addReplay: (recordingString: string, name?: string) => ({
+    addReplay: (
+      recordingString: string,
+      name?: string,
+      _metadata?: PolyViewerReplayImportMetadata,
+    ) => ({
       id: `imported-${recordingString}`,
       name: name ?? "Replay 2",
       visible: true,
@@ -94,8 +98,10 @@ describe("ReplayBridge", () => {
     const replay = new ReplayBridge(runtime, timeline);
 
     replay.setActive(true);
+    const evaluateFrame = vi.spyOn(runtimeReplay, "evaluateFrame");
     replay.seekMicroseconds(4_000_000);
     expect(timeline.timeMicroseconds).toBe(1_250_000);
+    expect(evaluateFrame).toHaveBeenCalledWith(1_250, false);
     replay.play();
     const bufferedDriver = runtimeReplay.driver as PolyTrackReplayDriver | null;
     expect(bufferedDriver?.(0.5, 5_000, 1_250)).toEqual({
@@ -191,6 +197,32 @@ describe("ReplayBridge", () => {
       { nickname: "Red", frames: 100, carStyle: "red" },
     ] }));
     expect(addReplay.mock.calls.map((call) => call[1])).toEqual(["Red", "Blue"]);
+    expect(addReplay.mock.calls.map((call) => call[2])).toEqual([
+      { recording: "one", carStyle: "red" },
+      { recording: "two", carStyle: "blue" },
+    ]);
+    expect(replay.timeline.durationMicroseconds).toBe(20_000_000);
+    replay.dispose();
+  });
+
+  it("never forwards leaderboard frame counts as runtime shot duration metadata", () => {
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 30_000, loadedFrames: 30_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...replayManagementMethods(),
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const addReplay = vi.spyOn(runtimeReplay, "addReplay");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+    replay.addReplay(JSON.stringify({ recording: "run", frames: 9_999, carStyle: "style" }));
+    expect(addReplay).toHaveBeenCalledWith("run", undefined, {
+      recording: "run",
+      carStyle: "style",
+    });
+    expect(replay.timeline.durationMicroseconds).toBe(30_000_000);
     replay.dispose();
   });
 });

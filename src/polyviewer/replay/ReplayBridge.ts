@@ -91,7 +91,7 @@ export class ReplayBridge {
     }
     const payload = parseReplayImport(recordingString);
     this.timeline.pause();
-    const added = replay.addReplay(payload.recording, name, payload);
+    const added = this.#addParsedReplay(replay, payload, name);
     this.#notify();
     return added;
   }
@@ -202,6 +202,7 @@ export class ReplayBridge {
     const loaded = this.#runtimeReplay.loadedFrames * MICROSECONDS_PER_FRAME;
     const safeTime = Math.max(0, Math.min(loaded, Math.round(timeMicroseconds)));
     this.timeline.seekMicroseconds(safeTime);
+    this.#runtimeReplay.evaluateFrame(Math.round(safeTime / MICROSECONDS_PER_FRAME), false);
     this.#notify();
   }
 
@@ -306,7 +307,13 @@ export class ReplayBridge {
     name?: string,
   ): PolyViewerReplaySummary {
     if (typeof replay.addReplay !== "function") throw new Error("Replay importing is unavailable.");
-    return replay.addReplay(payload.recording, name, payload);
+    // `frames` is leaderboard/result metadata, not an editor duration. Passing
+    // it into the runtime used to resize or truncate the shared shot and could
+    // leave deterministic rendering permanently waiting for that replay.
+    const runtimeMetadata: ReplayImportPayload = { recording: payload.recording };
+    if (payload.carStyle) runtimeMetadata.carStyle = payload.carStyle;
+    if (payload.verifiedState !== undefined) runtimeMetadata.verifiedState = payload.verifiedState;
+    return replay.addReplay(payload.recording, name, runtimeMetadata);
   }
 }
 

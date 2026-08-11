@@ -18,7 +18,7 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
 - Moving the camera after selecting or creating a point enters a manual edit override instead of being overwritten by the paused path. Scrubbing or pressing Play returns control to the deterministic camera path.
 - Camera modes have stable timeline colors: Fixed blue, Look At amber, Normal green, Follow purple, and Attached red. Different-mode points create one smooth, shortest-path world-pose transition in the same shot.
-- **Add Replay** accepts either a bare PolyTrack recording string or copied JSON with `recording`, `carStyle`, `frames`, and `verifiedState`. Recording and car style still pass through PolyTrack's native 0.6.2 deserializers.
+- **Add Replay** accepts bare recordings, copied objects, loose recording/CarStyle text, or arrays. It detects recording and 22-character CarStyle values even when field names differ. Recording and car style still pass through PolyTrack's native 0.6.2 deserializers.
 - The same dialog accepts an array of up to the remaining 20-car capacity. Optional leaderboard JSON connects nicknames by the exact `carStyle` + `frames` pair, so arrays do not depend on matching list order.
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
@@ -52,7 +52,7 @@ The Cloudflare Pages build command is `npm run build`; the output directory is `
 - `R`: reset position/offsets and return to the native Normal camera
 - `1 / 2 / 3 / 4 / 5`: Fixed / Look At / Normal / Follow / Attached
 - `F7`: toggle Clean Preview while PolyViewer is active
-- Mouse: look
+- Mouse: look (disabled in Look At because the selected car owns direction)
 - `W A S D`: move
 - `Q / E`: move down/up
 - `Shift`: fast movement
@@ -78,7 +78,7 @@ One capture-phase input bridge intercepts active PolyViewer controls before the 
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
 
-The **Add Replay** control is enabled only in that real Watch context. Invalid strings are rejected by PolyTrack's own parser and surfaced in the dialog; PolyViewer does not provide a fallback or synthetic recording format. Copied structured run JSON preserves its real car style and declared frame duration. A newly imported replay is simulated to the shared master duration, and the common loaded-frame boundary waits for every active replay.
+The **Add Replay** control is enabled only in that real Watch context. Invalid strings are rejected by PolyTrack's own parser and surfaced in the dialog; PolyViewer does not provide a fallback or synthetic recording format. Imported `frames` values are used only to associate leaderboard names. They never resize, shorten, or extend the authoritative main shot. Every imported replay is simulated to the existing shared master duration, and the common loaded-frame boundary waits for every active replay.
 
 ## Camera modes
 
@@ -88,9 +88,9 @@ The **Add Replay** control is enabled only in that real Watch context. Invalid s
 - **Follow:** follows the main replay's position while keeping an independent world orientation
 - **Attached:** stores camera position and rotation in the replay car's local space for cockpit, wheel, bumper, roof, and other mounted shots
 
-Changing modes preserves the visible camera pose. Look At derives a robust quaternion from the real target position every frame and supports a local intentional orientation/roll offset. Normal does not approximate a chase camera: PolyTrack continues updating its original orbit camera, including its own delayed/smoothed rotation, and PolyViewer composes keyframed offsets on the captured native pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping. Legacy `free` Camera Point data migrates to `fixed` when loaded into the store.
+Changing modes preserves the visible camera pose. Look At derives a robust quaternion from the real target position every frame; manual mouse rotation and roll are intentionally locked in that mode while position and FOV remain editable. Normal does not approximate a chase camera: PolyTrack continues updating its original orbit camera, including its own delayed/smoothed rotation, and PolyViewer composes keyframed offsets on the captured native pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping. Legacy `free` Camera Point data migrates to `fixed` when loaded into the store.
 
-Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Clicking a marker pauses and seeks to its exact time, applies its camera state, and opens the editor. Dragging uses a four-pixel threshold, clamps to replay duration, and preserves the stable point ID.
+Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations and all mode-local orientation offsets use shortest-path quaternion slerp. Moving a dynamic Camera Point seeks the real replay and re-captures its derived world endpoint at the new time, preventing stale transition rotations. Clicking a marker pauses and seeks to its exact time, applies its camera state, and opens the editor. Dragging uses a four-pixel threshold, clamps to replay duration, and preserves the stable point ID.
 
 ## Upstream integrity
 

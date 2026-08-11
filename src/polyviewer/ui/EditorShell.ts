@@ -107,11 +107,11 @@ export class EditorShell {
           <div><dt>Open / close</dt><dd>F1 / § / \`</dd></div>
           <div><dt>Reset Normal camera</dt><dd>R</dd></div>
           <div><dt>Camera modes</dt><dd>1 2 3 4 5</dd></div>
-          <div><dt>Look</dt><dd>Mouse</dd></div>
+          <div><dt>Look</dt><dd>Mouse · locked in Look At</dd></div>
           <div><dt>Move</dt><dd>W A S D</dd></div>
           <div><dt>Down / up</dt><dd>Q / E</dd></div>
           <div><dt>Fast / precise</dt><dd>Shift / Alt</dd></div>
-          <div><dt>Roll</dt><dd>Z / C</dd></div>
+          <div><dt>Roll</dt><dd>Z / C · locked in Look At</dd></div>
           <div><dt>FOV</dt><dd>[ / ]</dd></div>
           <div><dt>Move speed</dt><dd>Mouse wheel</dd></div>
           <div><dt>Add point</dt><dd>K</dd></div>

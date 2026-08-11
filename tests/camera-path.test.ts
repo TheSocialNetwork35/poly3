@@ -51,8 +51,8 @@ describe("evaluateCameraPath", () => {
   });
 
   it("marks a seamless same-shot transition between two camera modes", () => {
-    const start = { ...state(0), mode: "normal" as const };
-    const end = { ...state(10), mode: "attached" as const };
+    const start = { ...state(0, -1.2), mode: "normal" as const };
+    const end = { ...state(10, 1.4), mode: "attached" as const };
     const result = evaluateCameraPath([
       point("normal", 0, start),
       point("wheel", 1_000_000, end),
@@ -60,5 +60,8 @@ describe("evaluateCameraPath", () => {
     expect(result.mode).toBe("fixed");
     expect(result.modeTransition).toEqual({ from: "normal", to: "attached", amount: 0.5 });
     expect(result.position.x).toBeCloseTo(5);
+    const forward = rotateVector({ x: 0, y: 0, z: -1 }, result.orientation);
+    expect(Number.isFinite(forward.x)).toBe(true);
+    expect(Math.hypot(forward.x, forward.y, forward.z)).toBeCloseTo(1);
   });
 });

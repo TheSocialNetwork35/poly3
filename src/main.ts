@@ -226,11 +226,21 @@ function updateCameraPoint(id: string): void {
 
 function moveCameraPoint(id: string, timeMicroseconds: number): void {
   const clamped = Math.max(0, Math.min(masterTimeline.durationMicroseconds, timeMicroseconds));
+  cameraEditAuthority.resumePath();
   cameraPoints.move(id, clamped);
-  if (selectedCameraPointId === id) {
-    replayBridge?.seekMicroseconds(clamped);
-    shell.setSelectedCameraPoint(cameraPoints.get(id));
+  selectedCameraPointId = id;
+  replayBridge?.pause();
+  replayBridge?.seekMicroseconds(clamped);
+  const moved = cameraPoints.get(id);
+  if (moved && cameraController) {
+    // Dynamic modes (Look At, Normal, Follow, Attached) derive their final
+    // world pose from replay state. Re-capture that pose at the new keyframe
+    // time so adjacent quaternion transitions cannot retain stale endpoints.
+    cameraController.applyState(moved.state);
+    cameraPoints.update(id, clamped, cameraController.captureState());
   }
+  replayTimeline.setSelectedCameraPoint(id);
+  shell.setSelectedCameraPoint(cameraPoints.get(id));
 }
 
 function deleteCameraPoint(id: string): void {

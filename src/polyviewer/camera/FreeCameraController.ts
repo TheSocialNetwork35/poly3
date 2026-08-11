@@ -126,7 +126,17 @@ export class FreeCameraController {
     this.#pitch = angles.pitch;
     this.#roll = angles.roll;
     this.#mode = mode;
-    this.#captureModeOffsets(target, currentPose.position, currentPose.orientation);
+    if (mode === "lookAt") {
+      // Look At owns camera direction. Entering it must not preserve a hidden
+      // manual aim offset from the previous mode.
+      this.#lookAtOffset = { x: 0, y: 0, z: 0, w: 1 };
+      this.#yaw = 0;
+      this.#pitch = 0;
+      this.#roll = 0;
+      this.#capturePositionOffset(target, currentPose.position);
+    } else {
+      this.#captureModeOffsets(target, currentPose.position, currentPose.orientation);
+    }
     this.#notify();
   }
 
@@ -153,6 +163,16 @@ export class FreeCameraController {
     const target = this.#readTargetPose();
     const pose = this.#evaluatePose(target);
     const localOrientation = quaternionFromYawPitchRoll(this.#yaw, this.#pitch, this.#roll);
+    const native = this.#readNativeCameraPose();
+    const lookAtOffset = target
+      ? multiplyQuaternions(
+        invertQuaternion(lookAtQuaternion(pose.position, target.position)),
+        pose.orientation,
+      )
+      : this.#lookAtOffset;
+    const normalOrientationOffset = native
+      ? multiplyQuaternions(invertQuaternion(native.orientation), pose.orientation)
+      : localOrientation;
     return {
       mode: this.#mode,
       position: { ...pose.position },
@@ -166,9 +186,9 @@ export class FreeCameraController {
         : target
           ? multiplyQuaternions(invertQuaternion(target.orientation), pose.orientation)
           : { ...localOrientation },
-      lookAtOffset: { ...this.#lookAtOffset },
+      lookAtOffset: { ...lookAtOffset },
       normalPositionOffset: { ...this.#normalPositionOffset },
-      normalOrientationOffset: { ...this.#normalOrientationOffset },
+      normalOrientationOffset: { ...normalOrientationOffset },
     };
   }
 
@@ -317,11 +337,16 @@ export class FreeCameraController {
     }
     if (eventType !== "keydown") return;
     this.#keys.add(code);
-    if (code === "KeyZ") this.#roll = Math.max(-Math.PI, this.#roll + 0.02);
-    if (code === "KeyC") this.#roll = Math.min(Math.PI, this.#roll - 0.02);
+    if (code === "KeyZ" && cameraModeAllowsManualRotation(this.#mode)) {
+      this.#roll = Math.max(-Math.PI, this.#roll + 0.02);
+    }
+    if (code === "KeyC" && cameraModeAllowsManualRotation(this.#mode)) {
+      this.#roll = Math.min(Math.PI, this.#roll - 0.02);
+    }
     if (code === "BracketLeft") this.#fov = Math.max(10, this.#fov - 1);
     if (code === "BracketRight") this.#fov = Math.min(120, this.#fov + 1);
-    if (["KeyZ", "KeyC", "BracketLeft", "BracketRight"].includes(code)) {
+    if (["BracketLeft", "BracketRight"].includes(code)
+      || (["KeyZ", "KeyC"].includes(code) && cameraModeAllowsManualRotation(this.#mode))) {
       this.#onUserEdited?.();
     }
     this.#notify();
@@ -329,6 +354,7 @@ export class FreeCameraController {
 
   #onMouseMove = (event: MouseEvent): void => {
     if (!this.#enabled || document.pointerLockElement !== this.#bridge.canvas) return;
+    if (!cameraModeAllowsManualRotation(this.#mode)) return;
     this.#yaw -= event.movementX * 0.002;
     this.#pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, this.#pitch - event.movementY * 0.002));
     this.#onUserEdited?.();
@@ -488,6 +514,10 @@ export class FreeCameraController {
 
 export function normalizeCameraMode(mode: StoredCameraMode): CameraMode {
   return mode === "free" ? "fixed" : mode;
+}
+
+export function cameraModeAllowsManualRotation(mode: StoredCameraMode): boolean {
+  return normalizeCameraMode(mode) !== "lookAt";
 }
 
 interface CameraTargetPose {

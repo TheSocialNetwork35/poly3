@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { evaluateNativeCameraOffset } from "../src/polyviewer/camera/FreeCameraController";
+import {
+  cameraModeAllowsManualRotation,
+  evaluateNativeCameraOffset,
+} from "../src/polyviewer/camera/FreeCameraController";
 import { quaternionFromYawPitchRoll, rotateVector } from "../src/polyviewer/math/quaternion";
 
 describe("native Normal camera offsets", () => {
+  it("locks manual direction only in Look At mode", () => {
+    expect(cameraModeAllowsManualRotation("lookAt")).toBe(false);
+    expect(cameraModeAllowsManualRotation("fixed")).toBe(true);
+    expect(cameraModeAllowsManualRotation("normal")).toBe(true);
+    expect(cameraModeAllowsManualRotation("follow")).toBe(true);
+    expect(cameraModeAllowsManualRotation("attached")).toBe(true);
+  });
   it("applies cinematic position in the real replay camera local space", () => {
     const nativeOrientation = quaternionFromYawPitchRoll(Math.PI / 2, 0, 0);
     const result = evaluateNativeCameraOffset(
