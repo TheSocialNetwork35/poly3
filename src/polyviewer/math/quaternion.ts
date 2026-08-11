@@ -45,6 +45,37 @@ export function invertQuaternion(q: QuaternionValue): QuaternionValue {
   };
 }
 
+export function slerpQuaternions(a: QuaternionValue, b: QuaternionValue, amount: number): QuaternionValue {
+  const t = Math.max(0, Math.min(1, amount));
+  let end = b;
+  let dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+  if (dot < 0) {
+    dot = -dot;
+    end = { x: -b.x, y: -b.y, z: -b.z, w: -b.w };
+  }
+  if (dot > 0.9995) return normalizeQuaternion({
+    x: a.x + t * (end.x - a.x),
+    y: a.y + t * (end.y - a.y),
+    z: a.z + t * (end.z - a.z),
+    w: a.w + t * (end.w - a.w),
+  });
+  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const denominator = Math.sin(angle);
+  const startWeight = Math.sin((1 - t) * angle) / denominator;
+  const endWeight = Math.sin(t * angle) / denominator;
+  return {
+    x: a.x * startWeight + end.x * endWeight,
+    y: a.y * startWeight + end.y * endWeight,
+    z: a.z * startWeight + end.z * endWeight,
+    w: a.w * startWeight + end.w * endWeight,
+  };
+}
+
+function normalizeQuaternion(q: QuaternionValue): QuaternionValue {
+  const length = Math.hypot(q.x, q.y, q.z, q.w) || 1;
+  return { x: q.x / length, y: q.y / length, z: q.z / length, w: q.w / length };
+}
+
 export function rotateVector(vector: VectorValue, q: QuaternionValue): VectorValue {
   const tx = 2 * (q.y * vector.z - q.z * vector.y);
   const ty = 2 * (q.z * vector.x - q.x * vector.z);

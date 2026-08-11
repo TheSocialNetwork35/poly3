@@ -124,6 +124,21 @@ export class FreeCameraController {
     };
   }
 
+  applyState(state: CinematicCameraState): void {
+    this.#mode = state.mode;
+    this.#fov = state.fov;
+    this.#position = { ...state.position };
+    this.#followOffset = { ...state.followOffset };
+    this.#attachedOffset = { ...state.attachedOffset };
+    const orientation = state.mode === "attached"
+      ? state.attachedOrientation
+      : state.orientation;
+    const angles = yawPitchRollFromQuaternion(orientation);
+    this.#yaw = angles.yaw;
+    this.#pitch = angles.pitch;
+    this.#roll = angles.roll;
+  }
+
   setEnabled(enabled: boolean): void {
     if (enabled === this.#enabled) return;
     this.#enabled = enabled;

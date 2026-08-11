@@ -37,6 +37,8 @@ The camera controller obtains the selected target through the replay adapter and
 
 `CameraKeyframeStore` owns the editor's ordered camera-point data independently from the UI. Every point uses the `MasterTimeline` integer-microsecond time and a deep copy of the full cinematic camera state. Mutations preserve stable IDs, re-sort deterministically, and notify timeline consumers. This model is intended to be serialized directly by the later versioned project-file layer.
 
+`CameraPathEvaluator` is a pure deterministic function shared by preview now and final export later. It evaluates Smooth position/FOV curves with cubic smoothstep and orientation with shortest-path quaternion slerp. Same-mode Follow/Attached segments interpolate their native offsets; mixed-mode segments interpolate captured world poses and switch modes only at the destination point, preventing an orientation or transform snap mid-shot.
+
 The replay bridge is injected only into the uniquely verified 0.6.2 replay-preview class. It publishes lifecycle, duration, loaded frame count, current frame, primary real car, and one external driver callback. `ReplayBridge` owns that callback and is the only adapter between `MasterTimeline` and minified PolyTrack internals. The original preview state still performs frame application, cleanup, car visual updates, environment updates, and rendering. Exact anchors are counted and the build fails closed if any anchor changes.
 
 ## Known unknowns to resolve next

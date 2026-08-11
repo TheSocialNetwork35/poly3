@@ -1,5 +1,6 @@
 import "./styles.css";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
+import { evaluateCameraPath } from "./polyviewer/camera/CameraPathEvaluator";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
@@ -36,6 +37,10 @@ void waitForPolyTrackBridge()
     replayBridge = new ReplayBridge(bridge, masterTimeline, {
       onChange: (status) => {
         replayTimeline.update(status);
+        if (status.playing) {
+          const cameraState = evaluateCameraPath(cameraPoints.points, status.timeMicroseconds);
+          if (cameraState) cameraController?.applyState(cameraState);
+        }
         if (status.durationMicroseconds !== replayDurationMicroseconds) {
           replayTimeline.setCameraPoints(cameraPoints.points);
           replayDurationMicroseconds = status.durationMicroseconds;

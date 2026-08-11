@@ -67,7 +67,7 @@ PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay pre
 
 Changing modes preserves the visible camera pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping.
 
-Camera points currently provide the complete Stage 5 data foundation: stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. Cinematic path evaluation and point editing are the next stages; they are not claimed as complete yet.
+Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Point selection, dragging, deletion, updating, and duplication remain the next editing stage.
 
 ## Upstream integrity
 
