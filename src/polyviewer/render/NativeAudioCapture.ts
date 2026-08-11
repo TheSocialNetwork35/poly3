@@ -12,9 +12,15 @@ interface NativeAudioCaptureOptions {
 export async function captureNativeReplayAudio(
   audio: PolyTrackAudioBridge | null,
   replay: ReplayBridge,
-  durationMicroseconds: number,
+  startMicroseconds: number,
+  endMicroseconds: number,
   options: NativeAudioCaptureOptions = {},
 ): Promise<AudioBuffer | null> {
+  const durationMicroseconds = endMicroseconds - startMicroseconds;
+  if (!Number.isSafeInteger(startMicroseconds) || !Number.isSafeInteger(endMicroseconds)
+    || startMicroseconds < 0 || durationMicroseconds <= 0) {
+    throw new RangeError("Audio capture needs a valid ordered microsecond range.");
+  }
   const context = audio?.context;
   const master = audio?.destinationMaster;
   if (!context || !master || typeof MediaRecorder !== "function") return null;
@@ -37,12 +43,13 @@ export async function captureNativeReplayAudio(
   const editorState = replay.captureEditorState();
 
   try {
-    replay.evaluateExactFrame(0, false);
+    replay.evaluateExactFrame(startMicroseconds, false);
     recorder.start(250);
     replay.play();
-    await waitForTimeline(replay, durationMicroseconds, options);
+    await waitForTimeline(replay, startMicroseconds, endMicroseconds, options);
+    recorder.requestData();
     recorder.stop();
-    await stopped;
+    await withTimeout(stopped, 5_000, "The browser did not finish the PolyTrack audio capture.");
   } finally {
     replay.pause();
     if (recorder.state !== "inactive") recorder.stop();
@@ -59,21 +66,37 @@ export async function captureNativeReplayAudio(
 
 function waitForTimeline(
   replay: ReplayBridge,
-  durationMicroseconds: number,
+  startMicroseconds: number,
+  endMicroseconds: number,
   options: NativeAudioCaptureOptions,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    const wallDeadline = performance.now() + (endMicroseconds - startMicroseconds) / 1_000 + 10_000;
     const update = () => {
       if (options.signal?.aborted) {
         reject(new DOMException("Rendering cancelled.", "AbortError"));
         return;
       }
-      const elapsed = Math.min(durationMicroseconds, replay.timeline.timeMicroseconds);
-      options.onProgress?.(elapsed, durationMicroseconds);
-      if (elapsed >= durationMicroseconds) resolve();
+      if (performance.now() > wallDeadline) {
+        reject(new Error("PolyTrack audio could not reach the selected end time."));
+        return;
+      }
+      const current = Math.min(endMicroseconds, replay.timeline.timeMicroseconds);
+      options.onProgress?.(Math.max(0, current - startMicroseconds), endMicroseconds - startMicroseconds);
+      if (current >= endMicroseconds) resolve();
       else requestAnimationFrame(update);
     };
     requestAnimationFrame(update);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), milliseconds);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
   });
 }
 

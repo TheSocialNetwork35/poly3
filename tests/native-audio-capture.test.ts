@@ -10,10 +10,10 @@ describe("native PolyTrack audio capture", () => {
       context: {} as AudioContext,
       destinationMaster: {} as AudioNode,
     };
-    await expect(captureNativeReplayAudio(audio, {} as never, 1_000_000)).resolves.toBeNull();
+    await expect(captureNativeReplayAudio(audio, {} as never, 0, 1_000_000)).resolves.toBeNull();
   });
 
   it("does not attempt to invent sound when the native PolyTrack graph is unavailable", async () => {
-    await expect(captureNativeReplayAudio(null, {} as never, 1_000_000)).resolves.toBeNull();
+    await expect(captureNativeReplayAudio(null, {} as never, 0, 1_000_000)).resolves.toBeNull();
   });
 });

@@ -5,8 +5,10 @@ interface RenderPanelOptions {
   onRender: (
     settings: FrameRenderSettings,
     signal: AbortSignal,
+    includeAudio: boolean,
     onProgress: (completed: number, total: number) => void,
     onAudioProgress: (elapsedMicroseconds: number, durationMicroseconds: number) => void,
+    onAudioWarning: (message: string) => void,
   ) => Promise<VideoExportResult>;
 }
 
@@ -39,6 +41,9 @@ export class RenderPanel {
         <label>FPS
           <select name="fps"><option>30</option><option selected>60</option></select>
         </label>
+        <label>Start time (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
+        <label>End time (seconds)<input name="end" type="number" min="0" step="0.001" required></label>
+        <label class="polyviewer-render-audio"><input name="audio" type="checkbox" checked> Include real PolyTrack sound (adds a 1.0× audio pass)</label>
         <p class="polyviewer-render-status" aria-live="polite">Ready to render.</p>
         <progress max="1" value="0"></progress>
         <div>
@@ -66,6 +71,10 @@ export class RenderPanel {
   open(durationMicroseconds: number): void {
     if (this.#controller) return;
     this.#durationMicroseconds = durationMicroseconds;
+    const start = this.element.querySelector<HTMLInputElement>('[name="start"]');
+    const end = this.element.querySelector<HTMLInputElement>('[name="end"]');
+    if (start) start.value = "0.000";
+    if (end) end.value = (durationMicroseconds / 1_000_000).toFixed(3);
     this.#status.textContent = "Ready to render.";
     this.#progress(0, 1);
     this.element.showModal();
@@ -82,8 +91,17 @@ export class RenderPanel {
     const resolutionName = String(data.get("resolution")) as keyof typeof RESOLUTIONS;
     const resolution = RESOLUTIONS[resolutionName];
     const fps = Number(data.get("fps"));
+    const startMicroseconds = Math.round(Number(data.get("start")) * 1_000_000);
+    const endMicroseconds = Math.round(Number(data.get("end")) * 1_000_000);
+    const includeAudio = data.get("audio") === "on";
     if (!resolution || (fps !== 30 && fps !== 60)) {
       this.#status.textContent = "Choose a valid resolution and FPS.";
+      return;
+    }
+    if (!Number.isSafeInteger(startMicroseconds) || !Number.isSafeInteger(endMicroseconds)
+      || startMicroseconds < 0 || startMicroseconds >= endMicroseconds
+      || endMicroseconds > this.#durationMicroseconds) {
+      this.#status.textContent = "Choose a valid range inside the replay (Start must be before End).";
       return;
     }
     this.#controller = new AbortController();
@@ -93,12 +111,15 @@ export class RenderPanel {
         width: resolution[0],
         height: resolution[1],
         fps,
-        startMicroseconds: 0,
-        endMicroseconds: this.#durationMicroseconds,
-      }, this.#controller.signal,
+        startMicroseconds,
+        endMicroseconds,
+      }, this.#controller.signal, includeAudio,
       (completed, total) => this.#progress(completed, total),
       (elapsed, duration) => {
         this.#status.textContent = `Recording real PolyTrack sound at 1.0× · ${Math.round(elapsed / 1_000_000)} / ${Math.round(duration / 1_000_000)}s`;
+      },
+      (message) => {
+        this.#status.textContent = `${message} Continuing with video only…`;
       });
       downloadVideo(result);
       this.#status.textContent = `Video ready · ${result.codec.toUpperCase()} MP4 · ${result.hasAudio ? "with PolyTrack sound" : "video only (audio unavailable)"}`;

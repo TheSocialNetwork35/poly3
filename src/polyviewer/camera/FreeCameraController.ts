@@ -12,6 +12,7 @@ import type { PolyViewerKeyDetail } from "../input/ShortcutManager";
 
 interface FreeCameraOptions {
   onChange?: (state: FreeCameraStatus) => void;
+  onUserEdited?: () => void;
   getTarget?: (replayId: string) => PolyTrackCarTarget | null;
   getNativeCameraPose?: (replayId: string) => PolyTrackCameraPose | null;
 }
@@ -42,6 +43,11 @@ export interface CinematicCameraState {
   lookAtOffset?: QuaternionValue;
   normalPositionOffset?: VectorValue;
   normalOrientationOffset?: QuaternionValue;
+  modeTransition?: {
+    from: CameraMode;
+    to: CameraMode;
+    amount: number;
+  };
 }
 
 export class FreeCameraController {
@@ -68,10 +74,12 @@ export class FreeCameraController {
   #scene: PolyTrackScene | null = null;
   #previousBeforeRender: PolyTrackScene["onBeforeRender"] = null;
   #onChange?: (state: FreeCameraStatus) => void;
+  #onUserEdited?: () => void;
 
   constructor(bridge: PolyTrackBridge, options: FreeCameraOptions = {}) {
     this.#bridge = bridge;
     this.#onChange = options.onChange;
+    this.#onUserEdited = options.onUserEdited;
     this.#getTarget = options.getTarget ?? (() => null);
     this.#getNativeCameraPose = options.getNativeCameraPose ?? (() => null);
     window.addEventListener("mousemove", this.#onMouseMove, true);
@@ -297,6 +305,7 @@ export class FreeCameraController {
     };
     this.#position = nextPosition;
     this.#capturePositionOffset(target, nextPosition);
+    this.#onUserEdited?.();
   }
 
   #onKeyInput(detail: PolyViewerKeyDetail): void {
@@ -312,6 +321,9 @@ export class FreeCameraController {
     if (code === "KeyC") this.#roll = Math.min(Math.PI, this.#roll - 0.02);
     if (code === "BracketLeft") this.#fov = Math.max(10, this.#fov - 1);
     if (code === "BracketRight") this.#fov = Math.min(120, this.#fov + 1);
+    if (["KeyZ", "KeyC", "BracketLeft", "BracketRight"].includes(code)) {
+      this.#onUserEdited?.();
+    }
     this.#notify();
   }
 
@@ -319,6 +331,7 @@ export class FreeCameraController {
     if (!this.#enabled || document.pointerLockElement !== this.#bridge.canvas) return;
     this.#yaw -= event.movementX * 0.002;
     this.#pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, this.#pitch - event.movementY * 0.002));
+    this.#onUserEdited?.();
   };
 
   #readTargetPose(): CameraTargetPose | null {

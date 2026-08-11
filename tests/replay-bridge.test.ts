@@ -170,4 +170,27 @@ describe("ReplayBridge", () => {
     expect(setOffset).toHaveBeenCalledWith("main", 2_000);
     replay.dispose();
   });
+
+  it("adds a validated replay array with leaderboard names", () => {
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 20_000, loadedFrames: 20_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...replayManagementMethods(),
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const addReplay = vi.spyOn(runtimeReplay, "addReplay");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+    replay.addReplays(JSON.stringify([
+      { recording: "one", frames: 100, carStyle: "red" },
+      { recording: "two", frames: 200, carStyle: "blue" },
+    ]), JSON.stringify({ entries: [
+      { nickname: "Blue", frames: 200, carStyle: "blue" },
+      { nickname: "Red", frames: 100, carStyle: "red" },
+    ] }));
+    expect(addReplay.mock.calls.map((call) => call[1])).toEqual(["Red", "Blue"]);
+    replay.dispose();
+  });
 });

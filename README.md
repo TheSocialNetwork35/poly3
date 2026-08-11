@@ -16,12 +16,16 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Follow and Attached use the real replay car's position/quaternion and remain disabled until a real replay target exists.
 - **Add Camera Point** captures a stable, complete camera state at the exact integer-microsecond playhead time and adds a marker to the timeline.
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
+- Moving the camera after selecting or creating a point enters a manual edit override instead of being overwritten by the paused path. Scrubbing or pressing Play returns control to the deterministic camera path.
+- Camera modes have stable timeline colors: Fixed blue, Look At amber, Normal green, Follow purple, and Attached red. Different-mode points create one smooth, shortest-path world-pose transition in the same shot.
 - **Add Replay** accepts either a bare PolyTrack recording string or copied JSON with `recording`, `carStyle`, `frames`, and `verifiedState`. Recording and car style still pass through PolyTrack's native 0.6.2 deserializers.
+- The same dialog accepts an array of up to the remaining 20-car capacity. Optional leaderboard JSON connects nicknames by the exact `carStyle` + `frames` pair, so arrays do not depend on matching list order.
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
 - Preview and future export now share one `SceneEvaluator` for Camera Point evaluation. Its exact-frame path can synchronously advance the native replay in one-millisecond steps through real `Car.setCarState`, `Car.update`, and native camera updates.
 - The deterministic frame renderer uses rational integer timestamps, pre-rolls visual history, temporarily configures the real PolyTrack WebGL renderer at the requested output size, captures frames sequentially, supports cancellation/progress, and restores editor time/playback plus renderer size/aspect in `finally`.
 - **Render** offers 1080p, 1440p, or 4K at 30/60 FPS. WebCodecs encodes exact canvas frames and Mediabunny muxes a downloadable MP4. A separate 1.0× pass records PolyTrack's real WebAudio graph so engine, tire, collision, skid, and music audio keep real-time pitch and duration while video remains offline/deterministic.
+- Render Start/End fields limit export to an exact replay range. Sound is optional; capture and recorder-finalization timeouts prevent a failed browser audio pass from loading forever, and export continues honestly as video-only when native sound cannot be finalized.
 
 The 5/10/20-car performance qualification and project save/load are not yet presented as finished features. Video export is available only when the current browser exposes a compatible WebCodecs encoder; unsupported browsers receive an explicit error instead of a fake realtime fallback.
 
@@ -43,7 +47,8 @@ The Cloudflare Pages build command is `npm run build`; the output directory is `
 
 ## Camera controls
 
-- `§ / Backquote`: enter or exit PolyViewer (`F6` remains as a fallback)
+- `F1`: primary enter/exit shortcut
+- `§ / Backquote / IntlBackslash`: layout-aware alternatives (`F6` remains as a fallback)
 - `R`: reset position/offsets and return to the native Normal camera
 - `1 / 2 / 3 / 4 / 5`: Fixed / Look At / Normal / Follow / Attached
 - `F7`: toggle Clean Preview while PolyViewer is active

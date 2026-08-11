@@ -1,5 +1,5 @@
 import { MasterTimeline } from "../timeline/MasterTimeline";
-import { parseReplayImport } from "./ReplayImport";
+import { parseReplayImport, parseReplayImports, type ReplayImportPayload } from "./ReplayImport";
 
 const MICROSECONDS_PER_FRAME = 1_000;
 
@@ -92,6 +92,30 @@ export class ReplayBridge {
     const payload = parseReplayImport(recordingString);
     this.timeline.pause();
     const added = replay.addReplay(payload.recording, name, payload);
+    this.#notify();
+    return added;
+  }
+
+  addReplays(recordingsValue: string, leaderboardValue = ""): PolyViewerReplaySummary[] {
+    const replay = this.#runtimeReplay;
+    if (!replay || typeof replay.addReplay !== "function") {
+      throw new Error("Open a PolyTrack replay and reload once if the runtime was just updated.");
+    }
+    const imports = parseReplayImports(recordingsValue, leaderboardValue);
+    const available = 20 - listRuntimeReplays(replay).length;
+    if (imports.length > available) {
+      throw new Error(`Only ${available} additional replay${available === 1 ? "" : "s"} fit within the 20-car limit.`);
+    }
+    this.timeline.pause();
+    const added: PolyViewerReplaySummary[] = [];
+    try {
+      for (const item of imports) {
+        added.push(this.#addParsedReplay(replay, item.payload, item.name));
+      }
+    } catch (error) {
+      for (const entry of added.reverse()) replay.removeReplay(entry.id);
+      throw error;
+    }
     this.#notify();
     return added;
   }
@@ -274,6 +298,15 @@ export class ReplayBridge {
       nativeCameraAvailable: replay?.nativeCameraPose !== null && replay?.nativeCameraPose !== undefined,
       replays: listRuntimeReplays(replay),
     });
+  }
+
+  #addParsedReplay(
+    replay: PolyTrackReplayRuntimeBridge,
+    payload: ReplayImportPayload,
+    name?: string,
+  ): PolyViewerReplaySummary {
+    if (typeof replay.addReplay !== "function") throw new Error("Replay importing is unavailable.");
+    return replay.addReplay(payload.recording, name, payload);
   }
 }
 

@@ -1,5 +1,6 @@
 import type { ReplayBridgeStatus } from "../replay/ReplayBridge";
 import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
+import { normalizeCameraMode, type CameraMode } from "../camera/FreeCameraController";
 
 interface ReplayTimelineActions {
   onTogglePlayback: () => void;
@@ -19,6 +20,7 @@ export class ReplayTimeline {
   #time: HTMLElement;
   #loadStatus: HTMLElement;
   #markers: HTMLElement;
+  #segments: HTMLElement;
   #dragging = false;
   #durationMicroseconds = 0;
   #selectedCameraPointId: string | null = null;
@@ -40,16 +42,18 @@ export class ReplayTimeline {
       <div class="polyviewer-time">00:00.000 / 00:00.000</div>
       <div class="polyviewer-scrubber-wrap">
         <input class="polyviewer-scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Replay time">
+        <div class="polyviewer-camera-segments" aria-hidden="true"></div>
         <div class="polyviewer-keyframe-track" aria-label="Camera points"></div>
       </div>
-      <div class="polyviewer-load-status">Open a replay, then press F6</div>
+      <div class="polyviewer-load-status">Open a replay, then press F1</div>
     `;
     const playButton = this.element.querySelector<HTMLButtonElement>('[data-action="play"]');
     const scrubber = this.element.querySelector<HTMLInputElement>(".polyviewer-scrubber");
     const time = this.element.querySelector<HTMLElement>(".polyviewer-time");
     const loadStatus = this.element.querySelector<HTMLElement>(".polyviewer-load-status");
     const markers = this.element.querySelector<HTMLElement>(".polyviewer-keyframe-track");
-    if (!playButton || !scrubber || !time || !loadStatus || !markers) {
+    const segments = this.element.querySelector<HTMLElement>(".polyviewer-camera-segments");
+    if (!playButton || !scrubber || !time || !loadStatus || !markers || !segments) {
       throw new Error("Failed to construct the PolyViewer replay timeline.");
     }
     this.#playButton = playButton;
@@ -57,6 +61,7 @@ export class ReplayTimeline {
     this.#time = time;
     this.#loadStatus = loadStatus;
     this.#markers = markers;
+    this.#segments = segments;
 
     this.element.querySelector('[data-action="restart"]')?.addEventListener("click", actions.onRestart);
     this.element.querySelector('[data-action="step-back"]')?.addEventListener("click", () => actions.onStep(-16_000));
@@ -97,6 +102,7 @@ export class ReplayTimeline {
   }
 
   setCameraPoints(points: readonly CameraKeyframe[]): void {
+    this.#renderModeSegments(points);
     const liveIds = new Set(points.map((point) => point.id));
     for (const [id, marker] of this.#pointElements) {
       if (!liveIds.has(id)) {
@@ -115,8 +121,34 @@ export class ReplayTimeline {
       const duration = Math.max(1, this.#durationMicroseconds);
       marker.style.left = `${Math.max(0, Math.min(100, point.timeMicroseconds / duration * 100))}%`;
       marker.dataset.timeMicroseconds = point.timeMicroseconds.toString();
+      const mode = normalizeCameraMode(point.state.mode);
+      marker.dataset.cameraMode = mode;
+      marker.style.setProperty("--pv-camera-color", cameraModeColor(mode));
+      marker.setAttribute("aria-label", `${cameraModeLabel(mode)} camera point at ${formatTime(point.timeMicroseconds)}`);
       marker.classList.toggle("is-selected", point.id === this.#selectedCameraPointId);
     }
+  }
+
+  #renderModeSegments(points: readonly CameraKeyframe[]): void {
+    const duration = Math.max(1, this.#durationMicroseconds);
+    const segments: HTMLElement[] = [];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index]!;
+      const end = points[index + 1]!;
+      const startMode = normalizeCameraMode(start.state.mode);
+      const endMode = normalizeCameraMode(end.state.mode);
+      const segment = document.createElement("span");
+      segment.style.left = `${Math.max(0, Math.min(100, start.timeMicroseconds / duration * 100))}%`;
+      segment.style.width = `${Math.max(0, (end.timeMicroseconds - start.timeMicroseconds) / duration * 100)}%`;
+      segment.style.background = startMode === endMode
+        ? cameraModeColor(startMode)
+        : `linear-gradient(90deg, ${cameraModeColor(startMode)}, ${cameraModeColor(endMode)})`;
+      segment.title = startMode === endMode
+        ? cameraModeLabel(startMode)
+        : `${cameraModeLabel(startMode)} → ${cameraModeLabel(endMode)} smooth transition`;
+      segments.push(segment);
+    }
+    this.#segments.replaceChildren(...segments);
   }
 
   setSelectedCameraPoint(id: string | null): void {
@@ -167,6 +199,20 @@ export class ReplayTimeline {
     });
     return marker;
   }
+}
+
+export function cameraModeColor(mode: CameraMode): string {
+  return {
+    fixed: "#4b7dff",
+    lookAt: "#ffbf47",
+    normal: "#49d17d",
+    follow: "#b06cff",
+    attached: "#ff5e72",
+  }[mode];
+}
+
+function cameraModeLabel(mode: CameraMode): string {
+  return mode === "lookAt" ? "Look At" : mode[0]!.toUpperCase() + mode.slice(1);
 }
 
 export function calculateDraggedCameraPointTime(

@@ -33,12 +33,16 @@
               event.stopImmediatePropagation();
               return;
             }
-            if (event.code === "Backquote" || event.code === "F6" || window.__POLYVIEWER_INPUT_ACTIVE__) {
+            const isViewerToggle = event.code === "F1" || event.code === "F6"
+              || event.code === "Backquote" || event.code === "IntlBackslash"
+              || event.key === "§";
+            if (isViewerToggle || window.__POLYVIEWER_INPUT_ACTIVE__) {
               window.dispatchEvent(
                 new CustomEvent("polyviewer:key", {
                   detail: {
                     eventType: eventName,
                     code: event.code,
+                    key: event.key,
                     shiftKey: event.shiftKey,
                     repeat: event.repeat,
                   },

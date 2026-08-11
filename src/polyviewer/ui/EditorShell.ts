@@ -9,6 +9,7 @@ interface EditorShellOptions {
   onDuplicateCameraPoint?: (id: string) => void;
   onDeleteCameraPoint?: (id: string) => void;
   onAddReplay?: (recordingString: string, name?: string) => void;
+  onAddReplays?: (recordingsValue: string, leaderboardValue?: string) => void;
   onTargetReplayChange?: (id: string) => void;
   onReplayNameChange?: (id: string, name: string) => void;
   onReplayVisibilityChange?: (id: string, visible: boolean) => void;
@@ -43,7 +44,7 @@ export class EditorShell {
     this.element.className = "polyviewer-shell";
     this.element.innerHTML = `
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
-      <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>§</kbd></button>
+      <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F1</kbd></button>
       <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F7</kbd></button>
       <button class="polyviewer-render-button" type="button">Render</button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
@@ -76,13 +77,14 @@ export class EditorShell {
       </section>
       <dialog class="polyviewer-replay-dialog">
         <form method="dialog">
-          <strong>Add Replay</strong>
-          <label>Name <input name="name" type="text" maxlength="60" placeholder="World Record"></label>
-          <label>Paste PolyTrack Recording<textarea name="recording" required spellcheck="false"></textarea></label>
+          <strong>Add Replays</strong>
+          <label>Single replay name (optional)<input name="name" type="text" maxlength="60" placeholder="World Record"></label>
+          <label>Recording, object, or replay array JSON<textarea name="recording" required spellcheck="false" placeholder='[{"recording":"…","frames":15178,"carStyle":"…"}]'></textarea></label>
+          <label>Leaderboard names JSON (optional)<textarea name="leaderboard" spellcheck="false" placeholder='{"entries":[{"nickname":"SpeedySebas","frames":15178,"carStyle":"…"}]}'></textarea></label>
           <p class="polyviewer-replay-error" role="alert"></p>
           <div>
             <button value="cancel" type="button" data-replay-cancel>Cancel</button>
-            <button value="default" type="submit">Add Replay</button>
+            <button value="default" type="submit">Add Replays</button>
           </div>
         </form>
       </dialog>
@@ -102,7 +104,7 @@ export class EditorShell {
       <details>
         <summary>Controls & shortcuts</summary>
         <dl>
-          <div><dt>Open / close</dt><dd>§ / \`</dd></div>
+          <div><dt>Open / close</dt><dd>F1 / § / \`</dd></div>
           <div><dt>Reset Normal camera</dt><dd>R</dd></div>
           <div><dt>Camera modes</dt><dd>1 2 3 4 5</dd></div>
           <div><dt>Look</dt><dd>Mouse</dd></div>
@@ -186,13 +188,18 @@ export class EditorShell {
       const data = new FormData(form);
       const recording = String(data.get("recording") ?? "").trim();
       const name = String(data.get("name") ?? "").trim();
+      const leaderboard = String(data.get("leaderboard") ?? "").trim();
       const error = replayDialog.querySelector<HTMLElement>(".polyviewer-replay-error");
       if (!recording) {
         if (error) error.textContent = "Paste a PolyTrack recording first.";
         return;
       }
       try {
-        options.onAddReplay?.(recording, name || undefined);
+        if (recording.startsWith("[") || leaderboard) {
+          options.onAddReplays?.(recording, leaderboard || undefined);
+        } else {
+          options.onAddReplay?.(recording, name || undefined);
+        }
         form.reset();
         replayDialog.close();
       } catch (caught) {
@@ -261,8 +268,8 @@ export class EditorShell {
     this.element.classList.toggle("is-active", status.enabled);
     this.#shortcutSheet.classList.toggle("is-active", status.enabled);
     this.toggleButton.innerHTML = status.enabled
-      ? "Exit PolyViewer <kbd>§</kbd>"
-      : "Enter PolyViewer <kbd>§</kbd>";
+      ? "Exit PolyViewer <kbd>F1</kbd>"
+      : "Enter PolyViewer <kbd>F1</kbd>";
     this.#status.textContent = status.enabled
       ? `${status.pointerLocked ? "Camera captured" : "Click the scene to capture"} · Move speed ${status.speed.toFixed(1)} · ${status.fov.toFixed(0)}° FOV`
       : "Connected to the real PolyTrack renderer";

@@ -3,6 +3,7 @@ import type { CameraMode } from "../camera/FreeCameraController";
 export interface PolyViewerKeyDetail {
   eventType: "keydown" | "keyup" | "keypress";
   code: string;
+  key?: string;
   shiftKey: boolean;
   repeat: boolean;
 }
@@ -38,7 +39,8 @@ export class ShortcutManager {
   }
 
   handle(detail: PolyViewerKeyDetail): boolean {
-    if ((detail.code === "Backquote" || detail.code === "F6")
+    if ((detail.code === "F1" || detail.code === "F6" || detail.code === "Backquote"
+      || detail.code === "IntlBackslash" || detail.key === "§")
       && detail.eventType === "keydown" && !detail.repeat) {
       this.#actions.onToggleEditor();
       return true;

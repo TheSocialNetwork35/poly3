@@ -1,5 +1,6 @@
 import "./styles.css";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
+import { CameraEditAuthority } from "./polyviewer/camera/CameraEditAuthority";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ShortcutManager } from "./polyviewer/input/ShortcutManager";
 import { CleanPreviewController } from "./polyviewer/preview/CleanPreviewController";
@@ -18,15 +19,25 @@ let cameraController: FreeCameraController | null = null;
 let selectedCameraPointId: string | null = null;
 let shell: EditorShell;
 let videoExporter: VideoExporter | null = null;
+const cameraEditAuthority = new CameraEditAuthority();
 const renderPanel = new RenderPanel({
-  onRender: (settings, signal, onProgress, onAudioProgress) => {
+  onRender: (settings, signal, includeAudio, onProgress, onAudioProgress, onAudioWarning) => {
     if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
-    return videoExporter.export(settings, { signal, onProgress, onAudioProgress });
+    return videoExporter.export(settings, {
+      signal,
+      includeAudio,
+      onProgress,
+      onAudioProgress,
+      onAudioWarning,
+    });
   },
 });
 const cleanPreview = new CleanPreviewController(document, (enabled) => shell.setCleanPreview(enabled));
 shell = new EditorShell({
-  onCameraModeChange: (mode) => cameraController?.setMode(mode),
+  onCameraModeChange: (mode) => {
+    cameraEditAuthority.beginManualEdit();
+    cameraController?.setMode(mode);
+  },
   onAddCameraPoint: addCameraPoint,
   onMoveCameraPoint: moveCameraPoint,
   onUpdateCameraPoint: updateCameraPoint,
@@ -38,7 +49,13 @@ shell = new EditorShell({
   onAddReplay: (recordingString, name) => {
     replayBridge?.addReplay(recordingString, name);
   },
-  onTargetReplayChange: (id) => cameraController?.setTargetReplay(id),
+  onAddReplays: (recordingsValue, leaderboardValue) => {
+    replayBridge?.addReplays(recordingsValue, leaderboardValue);
+  },
+  onTargetReplayChange: (id) => {
+    cameraEditAuthority.beginManualEdit();
+    cameraController?.setTargetReplay(id);
+  },
   onReplayNameChange: (id, name) => replayBridge?.setReplayName(id, name),
   onReplayVisibilityChange: (id, visible) => replayBridge?.setReplayVisible(id, visible),
   onReplayOpacityChange: (id, opacity) => replayBridge?.setReplayOpacity(id, opacity),
@@ -46,7 +63,10 @@ shell = new EditorShell({
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),
   onOpenRender: () => renderPanel.open(masterTimeline.durationMicroseconds),
-  onResetCamera: () => cameraController?.resetToNormal(),
+  onResetCamera: () => {
+    cameraEditAuthority.beginManualEdit();
+    cameraController?.resetToNormal();
+  },
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -54,17 +74,35 @@ let replayDurationMicroseconds = 0;
 let nativeCameraWasAvailable = false;
 let sceneEvaluator: SceneEvaluator | null = null;
 const replayTimeline = new ReplayTimeline({
-  onTogglePlayback: () => replayBridge?.togglePlayback(),
-  onRestart: () => replayBridge?.restart(),
-  onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
-  onSeek: (timeMicroseconds) => replayBridge?.seekMicroseconds(timeMicroseconds),
+  onTogglePlayback: () => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.togglePlayback();
+  },
+  onRestart: () => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.restart();
+  },
+  onStep: (deltaMicroseconds) => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.stepMicroseconds(deltaMicroseconds);
+  },
+  onSeek: (timeMicroseconds) => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.seekMicroseconds(timeMicroseconds);
+  },
   onSelectCameraPoint: selectCameraPoint,
   onMoveCameraPoint: moveCameraPoint,
 });
 const shortcuts = new ShortcutManager({
   onToggleEditor: () => cameraController?.toggle(),
-  onTogglePlayback: () => replayBridge?.togglePlayback(),
-  onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
+  onTogglePlayback: () => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.togglePlayback();
+  },
+  onStep: (deltaMicroseconds) => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.stepMicroseconds(deltaMicroseconds);
+  },
   onAddCameraPoint: addCameraPoint,
   onUpdateCameraPoint: () => {
     if (selectedCameraPointId) updateCameraPoint(selectedCameraPointId);
@@ -73,8 +111,14 @@ const shortcuts = new ShortcutManager({
     if (selectedCameraPointId) deleteCameraPoint(selectedCameraPointId);
   },
   onToggleCleanPreview: () => cleanPreview.toggle(),
-  onResetCamera: () => cameraController?.resetToNormal(),
-  onCameraMode: (mode) => cameraController?.setMode(mode),
+  onResetCamera: () => {
+    cameraEditAuthority.beginManualEdit();
+    cameraController?.resetToNormal();
+  },
+  onCameraMode: (mode) => {
+    cameraEditAuthority.beginManualEdit();
+    cameraController?.setMode(mode);
+  },
   onCameraInput: (detail) => cameraController?.handleInput(detail),
 });
 cameraPoints.subscribe((points) => {
@@ -91,8 +135,13 @@ void waitForPolyTrackBridge()
       onChange: (status) => {
         replayTimeline.update(status);
         shell.setReplays(status.connected, status.replays);
-        shell.setRenderAvailable(status.connected && status.durationMicroseconds > 0);
-        if (status.active) sceneEvaluator?.evaluatePreview(status.timeMicroseconds);
+        shell.setRenderAvailable(
+          status.connected && status.durationMicroseconds > 0
+          && status.loadedMicroseconds >= status.durationMicroseconds,
+        );
+        if (status.active && cameraEditAuthority.shouldApplyPath(status.playing)) {
+          sceneEvaluator?.evaluatePreview(status.timeMicroseconds);
+        }
         if (status.durationMicroseconds !== replayDurationMicroseconds) {
           replayTimeline.setCameraPoints(cameraPoints.points);
           replayDurationMicroseconds = status.durationMicroseconds;
@@ -113,6 +162,9 @@ void waitForPolyTrackBridge()
         if (!status.enabled) cleanPreview.setEnabled(false);
         replayBridge?.setActive(status.enabled);
         shortcuts.setActive(status.enabled);
+      },
+      onUserEdited: () => {
+        cameraEditAuthority.beginManualEdit();
       },
     });
     sceneEvaluator = new SceneEvaluator(
@@ -148,6 +200,7 @@ function selectCameraPoint(id: string): void {
   const point = cameraPoints.get(id);
   if (!point) return;
   selectedCameraPointId = id;
+  cameraEditAuthority.resumePath();
   replayBridge?.pause();
   replayBridge?.seekMicroseconds(point.timeMicroseconds);
   cameraController?.applyState(point.state);

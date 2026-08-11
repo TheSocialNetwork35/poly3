@@ -24,13 +24,16 @@ describe("ShortcutManager", () => {
     manager.dispose();
   });
 
-  it("keeps the easy physical §/backquote key and F6 global while inactive", () => {
+  it("keeps F1, physical §/backquote, and F6 global while inactive", () => {
     const actions = createActions();
     const manager = new ShortcutManager(actions);
     manager.handle(key("KeyK"));
     manager.handle(key("Backquote"));
     expect(actions.onAddCameraPoint).not.toHaveBeenCalled();
     expect(actions.onToggleEditor).toHaveBeenCalledOnce();
+    manager.handle(key("F1"));
+    manager.handle({ ...key("IntlBackslash"), key: "§" });
+    expect(actions.onToggleEditor).toHaveBeenCalledTimes(3);
     manager.dispose();
   });
 

@@ -5,6 +5,51 @@ export interface ReplayImportPayload {
   verifiedState?: number;
 }
 
+export interface NamedReplayImport {
+  payload: ReplayImportPayload;
+  name?: string;
+}
+
+export function parseReplayImports(
+  recordingsValue: string,
+  leaderboardValue = "",
+): NamedReplayImport[] {
+  const raw = recordingsValue.trim();
+  if (!raw) throw new Error("Paste one or more PolyTrack recordings.");
+  let values: unknown[];
+  if (raw.startsWith("[")) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("The replay list is not valid JSON.");
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("The replay list must contain at least one recording.");
+    }
+    values = parsed;
+  } else {
+    return [{ payload: parseReplayImport(raw), name: findSingleName(raw, leaderboardValue) }];
+  }
+
+  const names = parseLeaderboardEntries(leaderboardValue);
+  const usedNames = new Set<number>();
+  return values.map((value, index) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`Replay ${index + 1} is not an object.`);
+    }
+    const payload = parseReplayImport(JSON.stringify(value));
+    const embeddedName = readCleanName((value as Record<string, unknown>).nickname);
+    const matchIndex = names.findIndex((entry, nameIndex) => !usedNames.has(nameIndex)
+      && entry.carStyle === payload.carStyle && entry.frames === payload.frames);
+    if (matchIndex >= 0) usedNames.add(matchIndex);
+    return {
+      payload,
+      name: embeddedName ?? (matchIndex >= 0 ? names[matchIndex]!.nickname : undefined),
+    };
+  });
+}
+
 /** Accepts PolyTrack's bare recording string and the object copied from a run. */
 export function parseReplayImport(value: string): ReplayImportPayload {
   const raw = value.trim();
@@ -72,4 +117,49 @@ function readStringField(raw: string, field: string): string | null {
 function readIntegerField(raw: string, field: string): number | null {
   const match = raw.match(new RegExp(`(?:^|[\\n,{])\\s*"?${field}"?\\s*:\\s*(-?\\d+)`));
   return match ? Number(match[1]) : null;
+}
+
+interface LeaderboardEntry {
+  nickname: string;
+  carStyle?: string;
+  frames?: number;
+}
+
+function parseLeaderboardEntries(value: string): LeaderboardEntry[] {
+  const raw = value.trim();
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("The optional leaderboard names are not valid JSON.");
+  }
+  const entries = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>).entries
+    : parsed;
+  if (!Array.isArray(entries)) throw new Error('Leaderboard JSON needs an "entries" array.');
+  return entries.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const object = entry as Record<string, unknown>;
+    const nickname = readCleanName(object.nickname);
+    if (!nickname) return [];
+    return [{
+      nickname,
+      carStyle: typeof object.carStyle === "string" ? object.carStyle : undefined,
+      frames: Number.isSafeInteger(object.frames) ? Number(object.frames) : undefined,
+    }];
+  });
+}
+
+function findSingleName(recording: string, leaderboard: string): string | undefined {
+  const payload = parseReplayImport(recording);
+  return parseLeaderboardEntries(leaderboard).find(
+    (entry) => entry.carStyle === payload.carStyle && entry.frames === payload.frames,
+  )?.nickname;
+}
+
+function readCleanName(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const clean = value.trim();
+  return clean ? clean.slice(0, 60) : undefined;
 }

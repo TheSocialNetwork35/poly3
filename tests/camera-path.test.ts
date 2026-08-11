@@ -49,4 +49,16 @@ describe("evaluateCameraPath", () => {
     expect(evaluateCameraPath(points, 0)?.position.x).toBe(2);
     expect(evaluateCameraPath(points, 3_000_000)?.position.x).toBe(4);
   });
+
+  it("marks a seamless same-shot transition between two camera modes", () => {
+    const start = { ...state(0), mode: "normal" as const };
+    const end = { ...state(10), mode: "attached" as const };
+    const result = evaluateCameraPath([
+      point("normal", 0, start),
+      point("wheel", 1_000_000, end),
+    ], 500_000)!;
+    expect(result.mode).toBe("fixed");
+    expect(result.modeTransition).toEqual({ from: "normal", to: "attached", amount: 0.5 });
+    expect(result.position.x).toBeCloseTo(5);
+  });
 });

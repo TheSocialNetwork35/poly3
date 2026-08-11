@@ -53,6 +53,11 @@ export function evaluateCameraPath(
       end.state.normalOrientationOffset ?? { x: 0, y: 0, z: 0, w: 1 },
       amount,
     ),
+    modeTransition: sameMode ? undefined : {
+      from: startMode,
+      to: endMode,
+      amount,
+    },
   };
 }
 
@@ -62,6 +67,7 @@ function normalizeState(state: CinematicCameraState): CinematicCameraState {
   result.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
   result.normalPositionOffset ??= { x: 0, y: 0, z: 0 };
   result.normalOrientationOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  result.modeTransition = undefined;
   return result;
 }
 

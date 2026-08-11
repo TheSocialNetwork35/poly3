@@ -19,6 +19,8 @@ export interface VideoExportOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
   onAudioProgress?: (elapsedMicroseconds: number, durationMicroseconds: number) => void;
+  onAudioWarning?: (message: string) => void;
+  includeAudio?: boolean;
 }
 
 export interface VideoExportResult {
@@ -58,13 +60,21 @@ export class VideoExporter {
       throw new Error(`No MP4 video encoder supports ${settings.width}×${settings.height} in this browser.`);
     }
 
-    const durationMicroseconds = settings.endMicroseconds - settings.startMicroseconds;
-    const audioBuffer = settings.startMicroseconds === 0
-      ? await captureNativeReplayAudio(this.#audio, this.#replay, durationMicroseconds, {
-        signal: options.signal,
-        onProgress: options.onAudioProgress,
-      })
-      : null;
+    let audioBuffer: AudioBuffer | null = null;
+    if (options.includeAudio !== false) {
+      try {
+        audioBuffer = await captureNativeReplayAudio(
+          this.#audio,
+          this.#replay,
+          settings.startMicroseconds,
+          settings.endMicroseconds,
+          { signal: options.signal, onProgress: options.onAudioProgress },
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") throw error;
+        options.onAudioWarning?.(error instanceof Error ? error.message : "Audio capture failed.");
+      }
+    }
 
     const target = new BufferTarget();
     const output = new Output({ format, target });
