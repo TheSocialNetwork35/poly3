@@ -1,0 +1,45 @@
+import { describe, expect, it, vi } from "vitest";
+import { CameraKeyframeStore } from "../src/polyviewer/camera/CameraKeyframeStore";
+import type { CinematicCameraState } from "../src/polyviewer/camera/FreeCameraController";
+
+const cameraState: CinematicCameraState = {
+  mode: "free",
+  position: { x: 1, y: 2, z: 3 },
+  orientation: { x: 0, y: 0, z: 0, w: 1 },
+  fov: 70,
+  targetReplayId: "main",
+  followOffset: { x: 0, y: 2, z: -5 },
+  attachedOffset: { x: 0, y: 1, z: 0 },
+  attachedOrientation: { x: 0, y: 0, z: 0, w: 1 },
+};
+
+describe("CameraKeyframeStore", () => {
+  it("keeps stable camera points sorted on the integer master timeline", () => {
+    const store = new CameraKeyframeStore();
+    const later = store.add(5_000_000, cameraState);
+    const earlier = store.add(2_000_000, cameraState);
+    expect(store.points.map((point) => point.id)).toEqual([earlier.id, later.id]);
+    expect(store.points[0]?.state).not.toBe(cameraState);
+  });
+
+  it("supports update, move, duplicate, remove, and subscriptions", () => {
+    const store = new CameraKeyframeStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+    const original = store.add(1_000_000, cameraState);
+    const copy = store.duplicate(original.id);
+    store.move(copy.id, 2_000_000);
+    store.update(original.id, 500_000, { ...cameraState, fov: 55 });
+    expect(store.points.map((point) => point.timeMicroseconds)).toEqual([500_000, 2_000_000]);
+    expect(store.points[0]?.state.fov).toBe(55);
+    store.remove(copy.id);
+    expect(store.points).toHaveLength(1);
+    expect(listener).toHaveBeenCalledTimes(6);
+  });
+
+  it("rejects non-deterministic timeline times", () => {
+    const store = new CameraKeyframeStore();
+    expect(() => store.add(-1, cameraState)).toThrow(RangeError);
+    expect(() => store.add(1.5, cameraState)).toThrow(RangeError);
+  });
+});

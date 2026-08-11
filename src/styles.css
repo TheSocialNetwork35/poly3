@@ -113,6 +113,20 @@
   color: rgb(255 255 255 / 45%);
   font: 10px/1.2 system-ui, sans-serif;
 }
+.polyviewer-add-point {
+  display: none;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgb(75 125 255 / 75%);
+  border-radius: 5px;
+  color: white;
+  background: rgb(75 125 255 / 28%);
+  font: 12px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-shell.is-active .polyviewer-add-point { display: block; }
+.polyviewer-add-point:hover { background: rgb(75 125 255 / 42%); }
 
 .polyviewer-timeline {
   --pv-blue: #4b7dff;
@@ -161,6 +175,10 @@
   text-align: center;
 }
 
+.polyviewer-scrubber-wrap {
+  position: relative;
+  min-width: 0;
+}
 .polyviewer-scrubber {
   width: 100%;
   min-width: 0;
@@ -168,6 +186,23 @@
   cursor: pointer;
 }
 .polyviewer-scrubber:disabled { cursor: not-allowed; opacity: 0.35; }
+.polyviewer-keyframe-track {
+  position: absolute;
+  inset: -8px 8px auto;
+  height: 8px;
+  pointer-events: none;
+}
+.polyviewer-keyframe-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--pv-blue);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 55%);
+  transform: translateX(-50%);
+}
 
 .polyviewer-load-status {
   min-width: 180px;
@@ -181,7 +216,7 @@
     grid-template-columns: auto 1fr;
     gap: 8px;
   }
-  .polyviewer-scrubber { grid-column: 1 / -1; grid-row: 2; }
+  .polyviewer-scrubber-wrap { grid-column: 1 / -1; grid-row: 2; }
   .polyviewer-load-status { display: none; }
   .polyviewer-time { justify-self: end; }
 }

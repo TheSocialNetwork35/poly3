@@ -1,23 +1,32 @@
 import "./styles.css";
+import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 
+const masterTimeline = new MasterTimeline();
+const cameraPoints = new CameraKeyframeStore();
 let cameraController: FreeCameraController | null = null;
 const shell = new EditorShell({
   onCameraModeChange: (mode) => cameraController?.setMode(mode),
+  onAddCameraPoint: () => {
+    if (cameraController) {
+      cameraPoints.add(masterTimeline.timeMicroseconds, cameraController.captureState());
+    }
+  },
 });
-const masterTimeline = new MasterTimeline();
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
+let replayDurationMicroseconds = 0;
 const replayTimeline = new ReplayTimeline({
   onTogglePlayback: () => replayBridge?.togglePlayback(),
   onRestart: () => replayBridge?.restart(),
   onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
   onSeek: (timeMicroseconds) => replayBridge?.seekMicroseconds(timeMicroseconds),
 });
+cameraPoints.subscribe((points) => replayTimeline.setCameraPoints(points));
 
 void waitForPolyTrackBridge()
   .then((bridge) => {
@@ -27,6 +36,10 @@ void waitForPolyTrackBridge()
     replayBridge = new ReplayBridge(bridge, masterTimeline, {
       onChange: (status) => {
         replayTimeline.update(status);
+        if (status.durationMicroseconds !== replayDurationMicroseconds) {
+          replayTimeline.setCameraPoints(cameraPoints.points);
+          replayDurationMicroseconds = status.durationMicroseconds;
+        }
         if (status.connected !== replayWasConnected) cameraController?.refreshStatus();
         replayWasConnected = status.connected;
       },

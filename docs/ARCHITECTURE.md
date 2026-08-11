@@ -35,6 +35,8 @@ FreeCam uses the real camera. It chains the scene's existing `onBeforeRender` ca
 
 The camera controller obtains the selected target through the replay adapter and calls the real car's public `getPosition()` and `getQuaternion()` methods. Follow stores a world-space positional offset and independent camera quaternion. Attached stores position and orientation in vehicle-local space using quaternion multiplication/inversion. Mode changes first evaluate the current world pose and then derive the new offsets, avoiding visible jumps.
 
+`CameraKeyframeStore` owns the editor's ordered camera-point data independently from the UI. Every point uses the `MasterTimeline` integer-microsecond time and a deep copy of the full cinematic camera state. Mutations preserve stable IDs, re-sort deterministically, and notify timeline consumers. This model is intended to be serialized directly by the later versioned project-file layer.
+
 The replay bridge is injected only into the uniquely verified 0.6.2 replay-preview class. It publishes lifecycle, duration, loaded frame count, current frame, primary real car, and one external driver callback. `ReplayBridge` owns that callback and is the only adapter between `MasterTimeline` and minified PolyTrack internals. The original preview state still performs frame application, cleanup, car visual updates, environment updates, and rendering. Exact anchors are counted and the build fails closed if any anchor changes.
 
 ## Known unknowns to resolve next

@@ -1,4 +1,5 @@
 import type { ReplayBridgeStatus } from "../replay/ReplayBridge";
+import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
 
 interface ReplayTimelineActions {
   onTogglePlayback: () => void;
@@ -15,7 +16,9 @@ export class ReplayTimeline {
   #scrubber: HTMLInputElement;
   #time: HTMLElement;
   #loadStatus: HTMLElement;
+  #markers: HTMLElement;
   #dragging = false;
+  #durationMicroseconds = 0;
 
   constructor(actions: ReplayTimelineActions) {
     this.element = document.createElement("section");
@@ -29,20 +32,25 @@ export class ReplayTimeline {
         <button type="button" data-action="step-forward" title="Step forward">›</button>
       </div>
       <div class="polyviewer-time">00:00.000 / 00:00.000</div>
-      <input class="polyviewer-scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Replay time">
+      <div class="polyviewer-scrubber-wrap">
+        <input class="polyviewer-scrubber" type="range" min="0" max="0" step="1" value="0" aria-label="Replay time">
+        <div class="polyviewer-keyframe-track" aria-label="Camera points"></div>
+      </div>
       <div class="polyviewer-load-status">Open a replay, then press F6</div>
     `;
     const playButton = this.element.querySelector<HTMLButtonElement>('[data-action="play"]');
     const scrubber = this.element.querySelector<HTMLInputElement>(".polyviewer-scrubber");
     const time = this.element.querySelector<HTMLElement>(".polyviewer-time");
     const loadStatus = this.element.querySelector<HTMLElement>(".polyviewer-load-status");
-    if (!playButton || !scrubber || !time || !loadStatus) {
+    const markers = this.element.querySelector<HTMLElement>(".polyviewer-keyframe-track");
+    if (!playButton || !scrubber || !time || !loadStatus || !markers) {
       throw new Error("Failed to construct the PolyViewer replay timeline.");
     }
     this.#playButton = playButton;
     this.#scrubber = scrubber;
     this.#time = time;
     this.#loadStatus = loadStatus;
+    this.#markers = markers;
 
     this.element.querySelector('[data-action="restart"]')?.addEventListener("click", actions.onRestart);
     this.element.querySelector('[data-action="step-back"]')?.addEventListener("click", () => actions.onStep(-16_000));
@@ -63,6 +71,7 @@ export class ReplayTimeline {
     this.#playButton.title = status.playing ? "Pause replay" : "Play replay";
 
     const durationFrames = Math.round(status.durationMicroseconds / MICROSECONDS_PER_FRAME);
+    this.#durationMicroseconds = status.durationMicroseconds;
     const timeFrames = Math.round(status.timeMicroseconds / MICROSECONDS_PER_FRAME);
     this.#scrubber.max = Math.max(0, durationFrames).toString();
     if (!this.#dragging) this.#scrubber.value = Math.min(timeFrames, durationFrames).toString();
@@ -79,6 +88,19 @@ export class ReplayTimeline {
     } else {
       this.#loadStatus.textContent = "Real PolyTrack replay connected";
     }
+  }
+
+  setCameraPoints(points: readonly CameraKeyframe[]): void {
+    this.#markers.replaceChildren(...points.map((point) => {
+      const marker = document.createElement("button");
+      marker.type = "button";
+      marker.className = "polyviewer-keyframe-marker";
+      marker.title = `Camera point at ${formatTime(point.timeMicroseconds)}`;
+      const duration = Math.max(1, this.#durationMicroseconds);
+      marker.style.left = `${Math.max(0, Math.min(100, point.timeMicroseconds / duration * 100))}%`;
+      marker.dataset.cameraPointId = point.id;
+      return marker;
+    }));
   }
 }
 

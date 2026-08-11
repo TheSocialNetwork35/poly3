@@ -29,6 +29,17 @@ export interface FreeCameraStatus {
 
 export type CameraMode = "free" | "fixed" | "follow" | "attached";
 
+export interface CinematicCameraState {
+  mode: CameraMode;
+  position: VectorValue;
+  orientation: QuaternionValue;
+  fov: number;
+  targetReplayId: "main";
+  followOffset: VectorValue;
+  attachedOffset: VectorValue;
+  attachedOrientation: QuaternionValue;
+}
+
 export class FreeCameraController {
   #bridge: PolyTrackBridge;
   #enabled = false;
@@ -91,6 +102,26 @@ export class FreeCameraController {
     this.#mode = mode;
     this.#captureModeOffsets(target, currentPose.position, currentPose.orientation);
     this.#notify();
+  }
+
+  captureState(): CinematicCameraState {
+    const target = this.#readTargetPose();
+    const pose = this.#evaluatePose(target);
+    const localOrientation = quaternionFromYawPitchRoll(this.#yaw, this.#pitch, this.#roll);
+    return {
+      mode: this.#mode,
+      position: { ...pose.position },
+      orientation: { ...pose.orientation },
+      fov: this.#fov,
+      targetReplayId: "main",
+      followOffset: { ...this.#followOffset },
+      attachedOffset: { ...this.#attachedOffset },
+      attachedOrientation: this.#mode === "attached"
+        ? { ...localOrientation }
+        : target
+          ? multiplyQuaternions(invertQuaternion(target.orientation), pose.orientation)
+          : { ...localOrientation },
+    };
   }
 
   setEnabled(enabled: boolean): void {

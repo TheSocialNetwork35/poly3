@@ -2,6 +2,7 @@ import type { CameraMode, FreeCameraStatus } from "../camera/FreeCameraControlle
 
 interface EditorShellOptions {
   onCameraModeChange?: (mode: CameraMode) => void;
+  onAddCameraPoint?: () => void;
 }
 
 export class EditorShell {
@@ -27,6 +28,7 @@ export class EditorShell {
         </div>
         <small class="polyviewer-camera-target">Target: Main Replay</small>
       </div>
+      <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
       <details>
         <summary>Camera controls</summary>
         <dl>
@@ -54,6 +56,10 @@ export class EditorShell {
         if (mode) options.onCameraModeChange?.(mode);
       });
     }
+    this.element.querySelector(".polyviewer-add-point")?.addEventListener(
+      "click",
+      () => options.onAddCameraPoint?.(),
+    );
     document.body.append(this.element);
   }
 
