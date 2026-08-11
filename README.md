@@ -8,9 +8,12 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - A narrow, version-checked runtime bridge exposes the real PolyTrack renderer, scene, camera, canvas, and active state without replacing the game simulation.
 - A working FreeCam controls the real rendering camera inside the real PolyTrack scene.
 - FreeCam supports mouse look, six-axis translation, roll, FOV, speed adjustment, fast movement, and precision movement.
-- A deterministic integer-microsecond `MasterTimeline` foundation is covered by tests.
+- The deterministic integer-microsecond `MasterTimeline` drives PolyTrack's real replay-preview state.
+- Replay transport supports play, pause, restart, scrubbing, backward seeking, and small/large stepping.
+- The bottom timeline appears only while PolyViewer is active and reports replay preparation progress honestly.
+- Replay evaluation stays on PolyTrack's native worker-generated frame buffer and `Car.setCarState` / `Car.update` visual path.
 
-Replay seeking, replay importing, camera keyframes, project files, and deterministic video export are not yet presented as finished features.
+Replay importing, camera keyframes, project files, and deterministic video export are not yet presented as finished features.
 
 ## Upstream online-service limitation
 
@@ -41,6 +44,16 @@ The Cloudflare Pages build command is `npm run build`; the output directory is `
 - Mouse wheel: movement speed
 
 When pointer lock is released, click the game canvas to capture the mouse again.
+
+## Replay timeline controls
+
+- `Space`: play or pause
+- `Left / Right`: step 16 milliseconds
+- `Shift + Left / Right`: step one second
+- Timeline slider: seek or scrub through worker-produced replay frames
+- `↺`: pause and return to the start
+
+PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
 
 ## Upstream integrity
 

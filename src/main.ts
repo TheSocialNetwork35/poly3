@@ -1,19 +1,39 @@
 import "./styles.css";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
+import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
+import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
+import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 
 const shell = new EditorShell();
+const masterTimeline = new MasterTimeline();
+let replayBridge: ReplayBridge | null = null;
+const replayTimeline = new ReplayTimeline({
+  onTogglePlayback: () => replayBridge?.togglePlayback(),
+  onRestart: () => replayBridge?.restart(),
+  onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
+  onSeek: (timeMicroseconds) => replayBridge?.seekMicroseconds(timeMicroseconds),
+});
 
 void waitForPolyTrackBridge()
   .then((bridge) => {
     if (bridge.version !== "0.6.2") {
       throw new Error(`PolyViewer requires PolyTrack 0.6.2, received ${String(bridge.version)}.`);
     }
-    const controller = new FreeCameraController(bridge, {
-      onChange: (status) => shell.update(status),
+    replayBridge = new ReplayBridge(bridge, masterTimeline, {
+      onChange: (status) => replayTimeline.update(status),
     });
-    shell.toggleButton.addEventListener("click", () => controller.toggle());
-    window.addEventListener("pagehide", () => controller.dispose(), { once: true });
+    const cameraController = new FreeCameraController(bridge, {
+      onChange: (status) => {
+        shell.update(status);
+        replayBridge?.setActive(status.enabled);
+      },
+    });
+    shell.toggleButton.addEventListener("click", () => cameraController.toggle());
+    window.addEventListener("pagehide", () => {
+      cameraController.dispose();
+      replayBridge?.dispose();
+    }, { once: true });
   })
   .catch((error: unknown) => {
     console.error(error);

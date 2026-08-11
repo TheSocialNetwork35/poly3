@@ -69,3 +69,75 @@
 .polyviewer-shell dl div { display: flex; justify-content: space-between; gap: 16px; padding: 3px 2px; }
 .polyviewer-shell dt { color: rgb(255 255 255 / 45%); }
 .polyviewer-shell dd { margin: 0; color: rgb(255 255 255 / 84%); }
+
+.polyviewer-timeline {
+  --pv-blue: #4b7dff;
+  position: fixed;
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 100000;
+  display: none;
+  grid-template-columns: auto auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 2px solid rgb(75 125 255 / 55%);
+  border-radius: 8px;
+  color: white;
+  background: linear-gradient(145deg, rgb(27 36 78 / 96%), rgb(15 20 46 / 95%));
+  box-shadow: 0 16px 44px rgb(0 0 0 / 42%);
+  font-family: "Forced Square", system-ui, sans-serif;
+  backdrop-filter: blur(14px);
+  user-select: none;
+}
+
+.polyviewer-timeline.is-visible { display: grid; }
+
+.polyviewer-transport { display: flex; gap: 5px; }
+.polyviewer-transport button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 5px;
+  color: white;
+  background: rgb(255 255 255 / 12%);
+  font: 20px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-transport button:hover { background: rgb(255 255 255 / 20%); }
+.polyviewer-transport .polyviewer-play { background: var(--pv-blue); }
+
+.polyviewer-time {
+  min-width: 154px;
+  color: rgb(255 255 255 / 88%);
+  font-size: 13px;
+  text-align: center;
+}
+
+.polyviewer-scrubber {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--pv-blue);
+  cursor: pointer;
+}
+.polyviewer-scrubber:disabled { cursor: not-allowed; opacity: 0.35; }
+
+.polyviewer-load-status {
+  min-width: 180px;
+  color: rgb(255 255 255 / 54%);
+  font: 11px/1.25 system-ui, sans-serif;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .polyviewer-timeline {
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+  }
+  .polyviewer-scrubber { grid-column: 1 / -1; grid-row: 2; }
+  .polyviewer-load-status { display: none; }
+  .polyviewer-time { justify-self: end; }
+}

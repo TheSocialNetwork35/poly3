@@ -26,7 +26,7 @@
             if (event.code === "F6" || window.__POLYVIEWER_INPUT_ACTIVE__) {
               window.dispatchEvent(
                 new CustomEvent("polyviewer:key", {
-                  detail: { eventType: eventName, code: event.code },
+                  detail: { eventType: eventName, code: event.code, shiftKey: event.shiftKey },
                 }),
               );
               event.preventDefault();

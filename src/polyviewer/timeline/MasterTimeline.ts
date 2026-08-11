@@ -22,6 +22,10 @@ export class MasterTimeline {
     return this.#playing;
   }
 
+  get rate(): number {
+    return this.#rate;
+  }
+
   setDurationMicroseconds(value: number): void {
     this.#durationMicroseconds = requireNonNegativeInteger(value, "duration");
     this.#timeMicroseconds = Math.min(this.#timeMicroseconds, this.#durationMicroseconds);
@@ -41,6 +45,10 @@ export class MasterTimeline {
     this.#playing = false;
   }
 
+  restart(): void {
+    this.#timeMicroseconds = 0;
+  }
+
   seekMicroseconds(value: number): void {
     const time = requireNonNegativeInteger(value, "time");
     this.#timeMicroseconds = Math.min(time, this.#durationMicroseconds);
@@ -50,6 +58,12 @@ export class MasterTimeline {
     requireNonNegativeInteger(frame, "frame");
     if (!Number.isInteger(fps) || fps <= 0) throw new RangeError("FPS must be a positive integer.");
     this.seekMicroseconds(Math.round((frame * MICROSECONDS_PER_SECOND) / fps));
+  }
+
+  stepMicroseconds(delta: number): void {
+    if (!Number.isSafeInteger(delta)) throw new RangeError("Step must be a safe integer.");
+    const next = Math.max(0, Math.min(this.#durationMicroseconds, this.#timeMicroseconds + delta));
+    this.#timeMicroseconds = next;
   }
 
   update(deltaSeconds: number): void {

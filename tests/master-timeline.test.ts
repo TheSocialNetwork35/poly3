@@ -23,4 +23,16 @@ describe("MasterTimeline", () => {
     expect(() => timeline.setDurationMicroseconds(-1)).toThrow(RangeError);
     expect(() => timeline.seekFrame(1, 59.94)).toThrow(RangeError);
   });
+
+  it("supports deterministic restart and signed stepping", () => {
+    const timeline = new MasterTimeline();
+    timeline.setDurationMicroseconds(2_000_000);
+    timeline.seekMicroseconds(1_000_000);
+    timeline.stepMicroseconds(-16_000);
+    expect(timeline.timeMicroseconds).toBe(984_000);
+    timeline.stepMicroseconds(4_000_000);
+    expect(timeline.timeMicroseconds).toBe(2_000_000);
+    timeline.restart();
+    expect(timeline.timeMicroseconds).toBe(0);
+  });
 });

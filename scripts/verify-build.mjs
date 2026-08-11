@@ -22,8 +22,11 @@ for (const path of requiredFiles) {
 }
 
 const bundle = await readFile(resolve("dist/main.bundle.js"), "utf8");
-if (!bundle.includes('window.__POLYTRACK_062__={version:"0.6.2"')) {
+if (!bundle.includes('window.__POLYTRACK_062__={version:"0.6.2",replay:null')) {
   throw new Error("The production bundle does not contain the verified PolyViewer bridge.");
+}
+if (!bundle.includes('window.dispatchEvent(new CustomEvent("polytrack:replay-ready"))')) {
+  throw new Error("The production bundle does not contain the verified replay-preview bridge.");
 }
 if (bundle.split('"/api/polytrack/"+').length - 1 !== 8) {
   throw new Error("The production bundle does not route all eight HTTP API endpoints through Pages.");
