@@ -9,13 +9,18 @@ export interface ReplayImportPayload {
 export function parseReplayImport(value: string): ReplayImportPayload {
   const raw = value.trim();
   if (!raw) throw new Error("Paste a PolyTrack recording or recording object.");
-  if (!raw.startsWith("{")) return { recording: raw };
+  const looksStructured = raw.startsWith("{")
+    || /(?:^|\n)\s*"?recording"?\s*\n?\s*:/.test(raw);
+  if (!looksStructured) return { recording: raw };
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error("The recording object is not valid JSON. Put double quotes around its fields and values.");
+    parsed = parseInspectorObject(raw);
+    if (!parsed) {
+      throw new Error("The recording object is not valid JSON or copied PolyTrack run data.");
+    }
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("The recording JSON must be an object.");
@@ -44,4 +49,27 @@ export function parseReplayImport(value: string): ReplayImportPayload {
     payload.verifiedState = Number(object.verifiedState);
   }
   return payload;
+}
+
+function parseInspectorObject(raw: string): Record<string, unknown> | null {
+  const recording = readStringField(raw, "recording");
+  if (!recording) return null;
+  const parsed: Record<string, unknown> = { recording };
+  const carStyle = readStringField(raw, "carStyle");
+  const frames = readIntegerField(raw, "frames");
+  const verifiedState = readIntegerField(raw, "verifiedState");
+  if (carStyle !== null) parsed.carStyle = carStyle;
+  if (frames !== null) parsed.frames = frames;
+  if (verifiedState !== null) parsed.verifiedState = verifiedState;
+  return parsed;
+}
+
+function readStringField(raw: string, field: string): string | null {
+  const match = raw.match(new RegExp(`(?:^|[\\n,{])\\s*"?${field}"?\\s*:\\s*"([^"]*)"`));
+  return match?.[1] ?? null;
+}
+
+function readIntegerField(raw: string, field: string): number | null {
+  const match = raw.match(new RegExp(`(?:^|[\\n,{])\\s*"?${field}"?\\s*:\\s*(-?\\d+)`));
+  return match ? Number(match[1]) : null;
 }

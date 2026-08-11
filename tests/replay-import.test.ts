@@ -20,7 +20,13 @@ describe("parseReplayImport", () => {
     });
   });
 
-  it("gives a useful error for JavaScript inspector text that is not JSON", () => {
-    expect(() => parseReplayImport('{recording: "abc"}')).toThrow(/valid JSON/);
+  it("accepts the exact multi-line object format copied from browser developer tools", () => {
+    expect(parseReplayImport(`carStyle\n:\n"AAAAAP___wAAAAAAAP___w"\nframes\n:\n22262\nrecording\n:\n"eNpNkEtK"\nverifiedState\n:\n1`)).toEqual({
+      carStyle: "AAAAAP___wAAAAAAAP___w",
+      frames: 22262,
+      recording: "eNpNkEtK",
+      verifiedState: 1,
+    });
+    expect(parseReplayImport('{recording: "abc"}')).toEqual({ recording: "abc" });
   });
 });
