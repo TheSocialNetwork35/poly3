@@ -86,6 +86,7 @@ export class CameraKeyframeStore {
 export function migrateCameraState(state: CinematicCameraState): CinematicCameraState {
   const migrated = structuredClone(state);
   migrated.mode = normalizeCameraMode(migrated.mode);
+  migrated.targetReplayId ||= "main";
   migrated.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
   migrated.normalPositionOffset ??= { x: 0, y: 0, z: 0 };
   migrated.normalOrientationOffset ??= { x: 0, y: 0, z: 0, w: 1 };

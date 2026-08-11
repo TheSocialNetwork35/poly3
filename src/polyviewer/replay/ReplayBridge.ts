@@ -55,8 +55,16 @@ export class ReplayBridge {
     return this.#runtimeReplay?.primaryCar ?? null;
   }
 
+  getCar(id: string): PolyTrackCarTarget | null {
+    return this.#runtimeReplay?.getCar(id) ?? null;
+  }
+
   get nativeCameraPose(): PolyTrackCameraPose | null {
     return this.#runtimeReplay?.nativeCameraPose ?? null;
+  }
+
+  getNativeCameraPose(id: string): PolyTrackCameraPose | null {
+    return this.#runtimeReplay?.getNativeCameraPose(id) ?? null;
   }
 
   get replays(): PolyViewerReplaySummary[] {
@@ -70,6 +78,35 @@ export class ReplayBridge {
     const added = replay.addReplay(recordingString, name);
     this.#notify();
     return added;
+  }
+
+  setReplayName(id: string, name: string): void {
+    this.#requireRuntimeReplay().setReplayName(id, name);
+    this.#notify();
+  }
+
+  setReplayVisible(id: string, visible: boolean): void {
+    this.#requireRuntimeReplay().setReplayVisible(id, visible);
+    this.#notify();
+  }
+
+  setReplayOpacity(id: string, opacity: number): void {
+    this.#requireRuntimeReplay().setReplayOpacity(id, opacity);
+    this.#notify();
+  }
+
+  setReplayOffset(id: string, offsetMilliseconds: number): void {
+    this.timeline.pause();
+    const maximum = Math.floor(this.timeline.durationMicroseconds / MICROSECONDS_PER_FRAME);
+    const safeOffset = Math.max(0, Math.min(maximum, Math.round(offsetMilliseconds)));
+    this.#requireRuntimeReplay().setReplayOffset(id, safeOffset);
+    this.#notify();
+  }
+
+  removeReplay(id: string): void {
+    this.timeline.pause();
+    this.#requireRuntimeReplay().removeReplay(id);
+    this.#notify();
   }
 
   setActive(active: boolean): void {
@@ -184,6 +221,11 @@ export class ReplayBridge {
   #onReplayLifecycle = (): void => {
     this.#synchronizeRuntimeReplay();
   };
+
+  #requireRuntimeReplay(): PolyTrackReplayRuntimeBridge {
+    if (!this.#runtimeReplay) throw new Error("Open a PolyTrack replay first.");
+    return this.#runtimeReplay;
+  }
 
   #notify(): void {
     const replay = this.#runtimeReplay;

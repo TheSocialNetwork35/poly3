@@ -12,8 +12,8 @@ import type { PolyViewerKeyDetail } from "../input/ShortcutManager";
 
 interface FreeCameraOptions {
   onChange?: (state: FreeCameraStatus) => void;
-  getTarget?: () => PolyTrackCarTarget | null;
-  getNativeCameraPose?: () => PolyTrackCameraPose | null;
+  getTarget?: (replayId: string) => PolyTrackCarTarget | null;
+  getNativeCameraPose?: (replayId: string) => PolyTrackCameraPose | null;
 }
 
 export interface FreeCameraStatus {
@@ -24,6 +24,7 @@ export interface FreeCameraStatus {
   mode: CameraMode;
   targetAvailable: boolean;
   nativeCameraAvailable: boolean;
+  targetReplayId: string;
 }
 
 export type CameraMode = "fixed" | "lookAt" | "normal" | "follow" | "attached";
@@ -34,7 +35,7 @@ export interface CinematicCameraState {
   position: VectorValue;
   orientation: QuaternionValue;
   fov: number;
-  targetReplayId: "main";
+  targetReplayId: string;
   followOffset: VectorValue;
   attachedOffset: VectorValue;
   attachedOrientation: QuaternionValue;
@@ -59,8 +60,9 @@ export class FreeCameraController {
   #lookAtOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
   #normalPositionOffset = { x: 0, y: 0, z: 0 };
   #normalOrientationOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
-  #getTarget: () => PolyTrackCarTarget | null;
-  #getNativeCameraPose: () => PolyTrackCameraPose | null;
+  #targetReplayId = "main";
+  #getTarget: (replayId: string) => PolyTrackCarTarget | null;
+  #getNativeCameraPose: (replayId: string) => PolyTrackCameraPose | null;
   #lastFrame = performance.now();
   #frameRequest = 0;
   #scene: PolyTrackScene | null = null;
@@ -97,6 +99,15 @@ export class FreeCameraController {
     this.#notify();
   }
 
+  setTargetReplay(id: string): void {
+    if (!id || id === this.#targetReplayId) return;
+    const currentPose = this.#evaluatePose(this.#readTargetPose());
+    this.#targetReplayId = id;
+    this.#position = { ...currentPose.position };
+    this.#captureModeOffsets(this.#readTargetPose(), currentPose.position, currentPose.orientation);
+    this.#notify();
+  }
+
   setMode(mode: CameraMode): void {
     if (mode === this.#mode) return;
     const target = this.#readTargetPose();
@@ -124,7 +135,7 @@ export class FreeCameraController {
       position: { ...pose.position },
       orientation: { ...pose.orientation },
       fov: this.#fov,
-      targetReplayId: "main",
+      targetReplayId: this.#targetReplayId,
       followOffset: { ...this.#followOffset },
       attachedOffset: { ...this.#attachedOffset },
       attachedOrientation: this.#mode === "attached"
@@ -140,6 +151,7 @@ export class FreeCameraController {
 
   applyState(state: CinematicCameraState): void {
     this.#mode = normalizeCameraMode(state.mode);
+    this.#targetReplayId = state.targetReplayId || "main";
     this.#fov = state.fov;
     this.#position = { ...state.position };
     this.#followOffset = { ...state.followOffset };
@@ -295,7 +307,7 @@ export class FreeCameraController {
   };
 
   #readTargetPose(): CameraTargetPose | null {
-    const target = this.#getTarget();
+    const target = this.#getTarget(this.#targetReplayId);
     if (!target) return null;
     const position = target.getPosition();
     const orientation = target.getQuaternion();
@@ -425,13 +437,14 @@ export class FreeCameraController {
       speed: this.#speed,
       fov: this.#fov,
       mode: this.#mode,
-      targetAvailable: this.#getTarget() !== null,
-      nativeCameraAvailable: this.#getNativeCameraPose() !== null,
+      targetAvailable: this.#getTarget(this.#targetReplayId) !== null,
+      nativeCameraAvailable: this.#getNativeCameraPose(this.#targetReplayId) !== null,
+      targetReplayId: this.#targetReplayId,
     });
   };
 
   #readNativeCameraPose(): CameraPose | null {
-    const pose = this.#getNativeCameraPose();
+    const pose = this.#getNativeCameraPose(this.#targetReplayId);
     if (!pose) return null;
     return {
       position: { ...pose.position },

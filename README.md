@@ -17,8 +17,9 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - **Add Camera Point** captures a stable, complete camera state at the exact integer-microsecond playhead time and adds a marker to the timeline.
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
 - **Add Replay** accepts a real PolyTrack recording string and passes it to the native 0.6.2 recording deserializer. Imported runs receive a real `Car`, replay-state buffer, and worker simulation and join the original replay update loop.
+- The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 
-The full replay settings panel, 20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
+The 5/10/20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
 
 ## Upstream online-service limitation
 

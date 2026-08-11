@@ -9,6 +9,12 @@ interface EditorShellOptions {
   onDuplicateCameraPoint?: (id: string) => void;
   onDeleteCameraPoint?: (id: string) => void;
   onAddReplay?: (recordingString: string, name?: string) => void;
+  onTargetReplayChange?: (id: string) => void;
+  onReplayNameChange?: (id: string, name: string) => void;
+  onReplayVisibilityChange?: (id: string, visible: boolean) => void;
+  onReplayOpacityChange?: (id: string, opacity: number) => void;
+  onReplayOffsetChange?: (id: string, offsetMilliseconds: number) => void;
+  onRemoveReplay?: (id: string) => void;
 }
 
 export class EditorShell {
@@ -22,6 +28,9 @@ export class EditorShell {
   #addReplayButton: HTMLButtonElement;
   #replayCount: HTMLElement;
   #replayDialog: HTMLDialogElement;
+  #targetSelect: HTMLSelectElement;
+  #replayList: HTMLElement;
+  #replays: PolyViewerReplaySummary[] = [];
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -39,13 +48,14 @@ export class EditorShell {
           <button type="button" data-camera-mode="follow">Follow</button>
           <button type="button" data-camera-mode="attached">Attached</button>
         </div>
-        <small class="polyviewer-camera-target">Target: Main Replay</small>
+        <label class="polyviewer-camera-target">Target <select data-camera-target></select></label>
       </div>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
       <div class="polyviewer-replays">
         <span class="polyviewer-replay-count">Replays: 0</span>
         <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
       </div>
+      <section class="polyviewer-replay-list" aria-label="Replays"></section>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
         <label>Time <input type="number" min="0" step="0.001" inputmode="decimal" data-point-time></label>
@@ -100,12 +110,16 @@ export class EditorShell {
     const addReplayButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-add-replay");
     const replayCount = this.element.querySelector<HTMLElement>(".polyviewer-replay-count");
     const replayDialog = this.element.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
-    if (!addReplayButton || !replayCount || !replayDialog) {
+    const targetSelect = this.element.querySelector<HTMLSelectElement>("[data-camera-target]");
+    const replayList = this.element.querySelector<HTMLElement>(".polyviewer-replay-list");
+    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList) {
       throw new Error("Failed to construct replay import controls.");
     }
     this.#addReplayButton = addReplayButton;
     this.#replayCount = replayCount;
     this.#replayDialog = replayDialog;
+    this.#targetSelect = targetSelect;
+    this.#replayList = replayList;
     for (const button of this.#modeButtons) {
       button.addEventListener("click", () => {
         const mode = button.dataset.cameraMode as CameraMode | undefined;
@@ -158,6 +172,22 @@ export class EditorShell {
         if (error) error.textContent = caught instanceof Error ? caught.message : "The replay could not be added.";
       }
     });
+    targetSelect.addEventListener("change", () => options.onTargetReplayChange?.(targetSelect.value));
+    replayList.addEventListener("change", (event) => {
+      const input = event.target as HTMLInputElement;
+      const row = input.closest<HTMLElement>("[data-replay-id]");
+      const id = row?.dataset.replayId;
+      if (!id) return;
+      if (input.matches("[data-replay-name]")) options.onReplayNameChange?.(id, input.value);
+      if (input.matches("[data-replay-visible]")) options.onReplayVisibilityChange?.(id, input.checked);
+      if (input.matches("[data-replay-opacity]")) options.onReplayOpacityChange?.(id, Number(input.value) / 100);
+      if (input.matches("[data-replay-offset]")) options.onReplayOffsetChange?.(id, Math.round(Number(input.value) * 1_000));
+    });
+    replayList.addEventListener("click", (event) => {
+      const button = (event.target as Element).closest<HTMLButtonElement>("[data-replay-remove]");
+      const id = button?.closest<HTMLElement>("[data-replay-id]")?.dataset.replayId;
+      if (id) options.onRemoveReplay?.(id);
+    });
     document.body.append(this.element);
   }
 
@@ -168,8 +198,26 @@ export class EditorShell {
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
-    this.#addReplayButton.disabled = !connected;
+    this.#addReplayButton.disabled = !connected || replays.length >= 20;
     this.#replayCount.textContent = `Replays: ${replays.length}`;
+    if (sameReplaySummaries(this.#replays, replays)) return;
+    this.#replays = replays.map((replay) => ({ ...replay }));
+    const selectedTarget = this.#targetSelect.value;
+    this.#targetSelect.replaceChildren(...replays.map((replay) => {
+      const option = document.createElement("option");
+      option.value = replay.id;
+      option.textContent = replay.name;
+      return option;
+    }));
+    const nextTarget = replays.some((replay) => replay.id === selectedTarget)
+      ? selectedTarget
+      : replays[0]?.id ?? "";
+    this.#targetSelect.value = nextTarget;
+    if (nextTarget !== selectedTarget && nextTarget) {
+      this.#targetSelect.dispatchEvent(new Event("change"));
+    }
+    this.#replayList.replaceChildren(...replays.map((replay) => createReplayRow(replay)));
+    this.#replayList.classList.toggle("is-visible", replays.length > 0);
   }
 
   update(status: FreeCameraStatus): void {
@@ -188,10 +236,10 @@ export class EditorShell {
         : (mode === "lookAt" || mode === "follow" || mode === "attached")
           && !status.targetAvailable;
     }
-    const target = this.element.querySelector<HTMLElement>(".polyviewer-camera-target");
-    if (target) target.textContent = status.targetAvailable
-      ? "Target: Main Replay"
-      : "Target modes need a replay";
+    this.#targetSelect.disabled = !status.targetAvailable;
+    if (this.#targetSelect.querySelector(`option[value="${CSS.escape(status.targetReplayId)}"]`)) {
+      this.#targetSelect.value = status.targetReplayId;
+    }
   }
 
   setError(message: string): void {
@@ -199,4 +247,34 @@ export class EditorShell {
     this.#status.textContent = message;
     this.toggleButton.disabled = true;
   }
+}
+
+function createReplayRow(replay: PolyViewerReplaySummary): HTMLElement {
+  const row = document.createElement("article");
+  row.dataset.replayId = replay.id;
+  row.innerHTML = `
+    <input data-replay-name aria-label="Replay name" maxlength="60">
+    <label title="Visible"><input data-replay-visible type="checkbox"> 👁</label>
+    <label class="polyviewer-opacity"><input data-replay-opacity type="range" min="0" max="100" step="1"><span></span></label>
+    <label class="polyviewer-offset">Offset <input data-replay-offset type="number" min="0" step="0.001">s</label>
+    ${replay.removable ? '<button data-replay-remove type="button" title="Remove replay">Remove</button>' : ""}
+  `;
+  const name = row.querySelector<HTMLInputElement>("[data-replay-name]");
+  const visible = row.querySelector<HTMLInputElement>("[data-replay-visible]");
+  const opacity = row.querySelector<HTMLInputElement>("[data-replay-opacity]");
+  const percentage = row.querySelector<HTMLElement>(".polyviewer-opacity span");
+  const offset = row.querySelector<HTMLInputElement>("[data-replay-offset]");
+  if (name) name.value = replay.name;
+  if (visible) visible.checked = replay.visible;
+  if (opacity) {
+    opacity.value = String(Math.round(replay.opacity * 100));
+    opacity.addEventListener("input", () => { if (percentage) percentage.textContent = `${opacity.value}%`; });
+  }
+  if (percentage) percentage.textContent = `${Math.round(replay.opacity * 100)}%`;
+  if (offset) offset.value = (replay.offsetMilliseconds / 1_000).toFixed(3);
+  return row;
+}
+
+function sameReplaySummaries(a: PolyViewerReplaySummary[], b: PolyViewerReplaySummary[]): boolean {
+  return a.length === b.length && a.every((entry, index) => JSON.stringify(entry) === JSON.stringify(b[index]));
 }

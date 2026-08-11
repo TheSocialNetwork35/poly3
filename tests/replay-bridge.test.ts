@@ -11,16 +11,24 @@ const fakeCar: PolyTrackCarTarget = {
 
 function replayManagementMethods() {
   return {
-    listReplays: () => [{ id: "main", name: "Main Run", visible: true, opacity: 1 }],
+    listReplays: () => [{
+      id: "main", name: "Main Run", visible: true, opacity: 1,
+      offsetMilliseconds: 0, removable: false,
+    }],
     getCar: () => fakeCar,
+    getNativeCameraPose: () => null,
     addReplay: (recordingString: string, name?: string) => ({
       id: `imported-${recordingString}`,
       name: name ?? "Replay 2",
       visible: true,
       opacity: 1,
+      offsetMilliseconds: 0,
+      removable: true,
     }),
+    setReplayName() {},
     setReplayVisible() {},
     setReplayOpacity() {},
+    setReplayOffset() {},
     removeReplay() {},
   };
 }
@@ -114,6 +122,29 @@ describe("ReplayBridge", () => {
       name: "World Record",
     });
     expect(addReplay).toHaveBeenCalledWith("REAL-RECORDING", "World Record");
+    replay.dispose();
+  });
+
+  it("routes replay settings and target lookup to stable native replay IDs", () => {
+    const methods = replayManagementMethods();
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 2_000, loadedFrames: 2_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...methods,
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const setOpacity = vi.spyOn(runtimeReplay, "setReplayOpacity");
+    const setOffset = vi.spyOn(runtimeReplay, "setReplayOffset");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+
+    expect(replay.getCar("main")).toBe(fakeCar);
+    replay.setReplayOpacity("main", 0.7);
+    replay.setReplayOffset("main", 9_000);
+    expect(setOpacity).toHaveBeenCalledWith("main", 0.7);
+    expect(setOffset).toHaveBeenCalledWith("main", 2_000);
     replay.dispose();
   });
 });

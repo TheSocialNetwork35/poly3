@@ -36,9 +36,12 @@ declare global {
     readonly primaryCar: PolyTrackCarTarget | null;
     listReplays(): PolyViewerReplaySummary[];
     getCar(id: string): PolyTrackCarTarget | null;
+    getNativeCameraPose(id: string): PolyTrackCameraPose | null;
     addReplay(recordingString: string, name?: string): PolyViewerReplaySummary;
+    setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
     setReplayOpacity(id: string, opacity: number): void;
+    setReplayOffset(id: string, offsetMilliseconds: number): void;
     removeReplay(id: string): void;
     nativeCameraPose: PolyTrackCameraPose | null;
     setDriver(driver: PolyTrackReplayDriver | null): void;
@@ -51,6 +54,8 @@ declare global {
     name: string;
     visible: boolean;
     opacity: number;
+    offsetMilliseconds: number;
+    removable: boolean;
   }
 
   interface PolyTrackCameraPose {

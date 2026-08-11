@@ -1,9 +1,9 @@
 @font-face {
+  /* Kept local so Cloudflare Pages never depends on an external editor font. */
   font-family: "Forced Square";
   src: url("/forced_square.woff2") format("woff2");
   font-display: swap;
 }
-
 .polyviewer-shell {
   --pv-blue: #4b7dff;
   position: fixed;
@@ -108,10 +108,23 @@
 }
 .polyviewer-camera-modes button:disabled { cursor: not-allowed; opacity: 0.3; }
 .polyviewer-camera-target {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 7px;
   color: rgb(255 255 255 / 45%);
   font: 10px/1.2 system-ui, sans-serif;
+}
+.polyviewer-camera-target select {
+  min-width: 0;
+  max-width: 180px;
+  padding: 4px 6px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 4px;
+  color: white;
+  background: #1a2349;
+  font: 10px/1 system-ui, sans-serif;
 }
 .polyviewer-add-point {
   display: none;
@@ -147,6 +160,38 @@
   cursor: pointer;
 }
 .polyviewer-add-replay:disabled { cursor: not-allowed; opacity: 0.35; }
+.polyviewer-replay-list {
+  display: none;
+  max-height: min(320px, 34vh);
+  margin-top: 8px;
+  overflow: auto;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+.polyviewer-shell.is-active .polyviewer-replay-list.is-visible { display: block; }
+.polyviewer-replay-list article {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto;
+  gap: 7px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+}
+.polyviewer-replay-list input[type="text"] {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: white;
+  background: transparent;
+  font: 11px/1 system-ui, sans-serif;
+}
+.polyviewer-replay-list input[type="text"]:focus { border-color: rgb(75 125 255 / 60%); background: rgb(0 0 0 / 18%); }
+.polyviewer-replay-list label { color: rgb(255 255 255 / 55%); font: 10px/1.2 system-ui, sans-serif; }
+.polyviewer-opacity { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 34px; align-items: center; gap: 7px; }
+.polyviewer-opacity input { width: 100%; accent-color: var(--pv-blue); }
+.polyviewer-opacity span { text-align: right; }
+.polyviewer-offset { grid-column: 1; display: flex; align-items: center; gap: 5px; }
+.polyviewer-offset input { width: 68px; padding: 4px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 3px; color: white; background: rgb(0 0 0 / 20%); }
+.polyviewer-replay-list button { grid-column: 2; border: 0; color: #ffb4b4; background: transparent; font: 10px/1 system-ui, sans-serif; cursor: pointer; }
 .polyviewer-replay-dialog {
   width: min(460px, calc(100vw - 32px));
   box-sizing: border-box;

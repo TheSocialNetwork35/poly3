@@ -25,6 +25,12 @@ const shell = new EditorShell({
   onAddReplay: (recordingString, name) => {
     replayBridge?.addReplay(recordingString, name);
   },
+  onTargetReplayChange: (id) => cameraController?.setTargetReplay(id),
+  onReplayNameChange: (id, name) => replayBridge?.setReplayName(id, name),
+  onReplayVisibilityChange: (id, visible) => replayBridge?.setReplayVisible(id, visible),
+  onReplayOpacityChange: (id, opacity) => replayBridge?.setReplayOpacity(id, opacity),
+  onReplayOffsetChange: (id, offsetMilliseconds) => replayBridge?.setReplayOffset(id, offsetMilliseconds),
+  onRemoveReplay: (id) => replayBridge?.removeReplay(id),
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -82,8 +88,8 @@ void waitForPolyTrackBridge()
       },
     });
     cameraController = new FreeCameraController(bridge, {
-      getTarget: () => replayBridge?.primaryCar ?? null,
-      getNativeCameraPose: () => replayBridge?.nativeCameraPose ?? null,
+      getTarget: (id) => replayBridge?.getCar(id) ?? null,
+      getNativeCameraPose: (id) => replayBridge?.getNativeCameraPose(id) ?? null,
       onChange: (status) => {
         shell.update(status);
         replayBridge?.setActive(status.enabled);

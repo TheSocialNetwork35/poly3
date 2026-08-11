@@ -49,6 +49,8 @@ The replay bridge is injected only into the uniquely verified 0.6.2 replay-previ
 
 The same narrow bridge now owns imported replay lifecycle. It resolves the recording constructor from the already-running main replay and calls its exact static `deserialize` entry point. A valid import receives the same native `Car` class and dependencies as the original Watch constructor, its own strict replay buffer, and a non-realtime simulation-worker car targeting the shared replay duration. The entry is appended to Watch's real replay array, so its existing state application, `Car.update`, wheel/suspension/steering visuals, camera updates, and cleanup loops process imported cars without a parallel fake renderer. `loadedFrames` is the minimum across all entries, preventing the master clock from outrunning a newly imported worker. Import failure is surfaced; there is no fallback recording representation.
 
+Replay IDs remain stable for the lifetime of the Watch scene. UI settings call the native `Car.setVisible`, `Car.setOpacity`, and name-tag methods on the selected entry; imported cars have independent cloned car resources through the original Car constructor, and removal deletes the worker car before disposing its scene resources. A non-negative offset maps master frame `m` to `max(0, m - offset)` inside the one verified native replay-application loop. This retains `Car.setCarState` reset detection instead of moving transforms externally. Camera targeting resolves the same ID to either the real car transform or that car's own updated native orbit camera. Imports are deliberately capped at 20 until measured 5/10/20-car qualification is complete.
+
 ## Known unknowns to resolve next
 
 - Stable car scene nodes and material ownership for per-replay opacity.
