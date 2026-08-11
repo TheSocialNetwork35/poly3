@@ -8,6 +8,7 @@ interface EditorShellOptions {
   onUpdateCameraPoint?: (id: string) => void;
   onDuplicateCameraPoint?: (id: string) => void;
   onDeleteCameraPoint?: (id: string) => void;
+  onAddReplay?: (recordingString: string, name?: string) => void;
 }
 
 export class EditorShell {
@@ -18,6 +19,9 @@ export class EditorShell {
   #pointEditor: HTMLElement;
   #pointTime: HTMLInputElement;
   #selectedPointId: string | null = null;
+  #addReplayButton: HTMLButtonElement;
+  #replayCount: HTMLElement;
+  #replayDialog: HTMLDialogElement;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -38,6 +42,10 @@ export class EditorShell {
         <small class="polyviewer-camera-target">Target: Main Replay</small>
       </div>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
+      <div class="polyviewer-replays">
+        <span class="polyviewer-replay-count">Replays: 0</span>
+        <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
+      </div>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
         <label>Time <input type="number" min="0" step="0.001" inputmode="decimal" data-point-time></label>
@@ -63,6 +71,18 @@ export class EditorShell {
           <div><dt>Play / pause</dt><dd>Space</dd></div>
         </dl>
       </details>
+      <dialog class="polyviewer-replay-dialog">
+        <form method="dialog">
+          <strong>Add Replay</strong>
+          <label>Name <input name="name" type="text" maxlength="60" placeholder="World Record"></label>
+          <label>Paste PolyTrack Recording<textarea name="recording" required spellcheck="false"></textarea></label>
+          <p class="polyviewer-replay-error" role="alert"></p>
+          <div>
+            <button value="cancel" type="button" data-replay-cancel>Cancel</button>
+            <button value="default" type="submit">Add Replay</button>
+          </div>
+        </form>
+      </dialog>
     `;
     const toggle = this.element.querySelector<HTMLButtonElement>(".polyviewer-toggle");
     const status = this.element.querySelector<HTMLElement>(".polyviewer-status");
@@ -77,6 +97,15 @@ export class EditorShell {
     if (!pointEditor || !pointTime) throw new Error("Failed to construct Camera Point editor.");
     this.#pointEditor = pointEditor;
     this.#pointTime = pointTime;
+    const addReplayButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-add-replay");
+    const replayCount = this.element.querySelector<HTMLElement>(".polyviewer-replay-count");
+    const replayDialog = this.element.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
+    if (!addReplayButton || !replayCount || !replayDialog) {
+      throw new Error("Failed to construct replay import controls.");
+    }
+    this.#addReplayButton = addReplayButton;
+    this.#replayCount = replayCount;
+    this.#replayDialog = replayDialog;
     for (const button of this.#modeButtons) {
       button.addEventListener("click", () => {
         const mode = button.dataset.cameraMode as CameraMode | undefined;
@@ -102,6 +131,33 @@ export class EditorShell {
         if (action === "delete") options.onDeleteCameraPoint?.(this.#selectedPointId);
       });
     }
+    addReplayButton.addEventListener("click", () => {
+      const error = replayDialog.querySelector<HTMLElement>(".polyviewer-replay-error");
+      if (error) error.textContent = "";
+      replayDialog.showModal();
+    });
+    replayDialog.querySelector("[data-replay-cancel]")?.addEventListener("click", () => {
+      replayDialog.close();
+    });
+    replayDialog.querySelector("form")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const form = event.currentTarget as HTMLFormElement;
+      const data = new FormData(form);
+      const recording = String(data.get("recording") ?? "").trim();
+      const name = String(data.get("name") ?? "").trim();
+      const error = replayDialog.querySelector<HTMLElement>(".polyviewer-replay-error");
+      if (!recording) {
+        if (error) error.textContent = "Paste a PolyTrack recording first.";
+        return;
+      }
+      try {
+        options.onAddReplay?.(recording, name || undefined);
+        form.reset();
+        replayDialog.close();
+      } catch (caught) {
+        if (error) error.textContent = caught instanceof Error ? caught.message : "The replay could not be added.";
+      }
+    });
     document.body.append(this.element);
   }
 
@@ -109,6 +165,11 @@ export class EditorShell {
     this.#selectedPointId = point?.id ?? null;
     this.#pointEditor.classList.toggle("is-visible", point !== null);
     if (point) this.#pointTime.value = (point.timeMicroseconds / 1_000_000).toFixed(3);
+  }
+
+  setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
+    this.#addReplayButton.disabled = !connected;
+    this.#replayCount.textContent = `Replays: ${replays.length}`;
   }
 
   update(status: FreeCameraStatus): void {

@@ -9,6 +9,22 @@ const fakeCar: PolyTrackCarTarget = {
   getQuaternion: () => ({ x: 0, y: 0, z: 0, w: 1 }),
 };
 
+function replayManagementMethods() {
+  return {
+    listReplays: () => [{ id: "main", name: "Main Run", visible: true, opacity: 1 }],
+    getCar: () => fakeCar,
+    addReplay: (recordingString: string, name?: string) => ({
+      id: `imported-${recordingString}`,
+      name: name ?? "Replay 2",
+      visible: true,
+      opacity: 1,
+    }),
+    setReplayVisible() {},
+    setReplayOpacity() {},
+    removeReplay() {},
+  };
+}
+
 describe("ReplayBridge", () => {
   beforeEach(() => {
     vi.stubGlobal("window", new FakeWindow());
@@ -29,6 +45,7 @@ describe("ReplayBridge", () => {
       timeFrames: 0,
       primaryCar: fakeCar,
       nativeCameraPose: null,
+      ...replayManagementMethods(),
       setDriver(value: PolyTrackReplayDriver | null) { driver = value; },
       setNativePaused(value: boolean) { nativePaused = value; },
       seekFrame() {},
@@ -58,6 +75,7 @@ describe("ReplayBridge", () => {
       timeFrames: 0,
       primaryCar: fakeCar,
       nativeCameraPose: null,
+      ...replayManagementMethods(),
       setDriver(value: PolyTrackReplayDriver | null) { this.driver = value; },
       setNativePaused() {},
       seekFrame() {},
@@ -75,6 +93,27 @@ describe("ReplayBridge", () => {
       frame: 1_250,
       advanceVisuals: false,
     });
+    replay.dispose();
+  });
+
+  it("passes recording strings to the native replay runtime without inventing a format", () => {
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 1_000, loadedFrames: 1_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...replayManagementMethods(),
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const addReplay = vi.spyOn(runtimeReplay, "addReplay");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+
+    expect(replay.addReplay("REAL-RECORDING", "World Record")).toMatchObject({
+      id: "imported-REAL-RECORDING",
+      name: "World Record",
+    });
+    expect(addReplay).toHaveBeenCalledWith("REAL-RECORDING", "World Record");
     replay.dispose();
   });
 });

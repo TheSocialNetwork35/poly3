@@ -31,6 +31,9 @@ if (!bundle.includes('window.dispatchEvent(new CustomEvent("polytrack:replay-rea
 if (!bundle.includes("nativeCameraPose={position:")) {
   throw new Error("The production bundle does not expose the verified native replay-camera pose.");
 }
+if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.deserialize(pvRecordingString.trim())")) {
+  throw new Error("The production bundle does not contain the verified native replay importer.");
+}
 if (bundle.split('"/api/polytrack/"+').length - 1 !== 8) {
   throw new Error("The production bundle does not route all eight HTTP API endpoints through Pages.");
 }

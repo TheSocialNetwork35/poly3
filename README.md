@@ -12,12 +12,13 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Replay transport supports play, pause, restart, scrubbing, backward seeking, and small/large stepping.
 - The bottom timeline appears only while PolyViewer is active and reports replay preparation progress honestly.
 - Replay evaluation stays on PolyTrack's native worker-generated frame buffer and `Car.setCarState` / `Car.update` visual path.
-- Four camera modes are available through one simple control: Free, Fixed, position-only Follow, and vehicle-relative Attached.
+- Five camera modes are available through one simple control: Fixed, world-space Look At, native Normal, position-only Follow, and vehicle-relative Attached.
 - Follow and Attached use the real replay car's position/quaternion and remain disabled until a real replay target exists.
 - **Add Camera Point** captures a stable, complete camera state at the exact integer-microsecond playhead time and adds a marker to the timeline.
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
+- **Add Replay** accepts a real PolyTrack recording string and passes it to the native 0.6.2 recording deserializer. Imported runs receive a real `Car`, replay-state buffer, and worker simulation and join the original replay update loop.
 
-Replay importing, camera keyframes, project files, and deterministic video export are not yet presented as finished features.
+The full replay settings panel, 20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
 
 ## Upstream online-service limitation
 
@@ -63,6 +64,8 @@ When pointer lock is released, click the game canvas to capture the mouse again.
 One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing; the replay and camera components no longer register competing keyboard listeners. Shortcuts are ignored while typing in an input, textarea, select, or contenteditable element. F7 is intentionally connected only when the reversible Clean Preview stage is implemented, rather than being shipped as a non-working shortcut.
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
+
+The **Add Replay** control is enabled only in that real Watch context. Invalid strings are rejected by PolyTrack's own parser and surfaced in the dialog; PolyViewer does not provide a fallback or synthetic recording format. A newly imported replay is simulated to the shared master duration, and the common loaded-frame boundary waits for every active replay.
 
 ## Camera modes
 

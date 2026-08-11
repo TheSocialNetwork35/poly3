@@ -22,7 +22,7 @@ This record distinguishes observations made directly from the supplied productio
 - The runtime has an explicit simulation determinism test path.
 - The runtime provides an official `window.polytrackModConfiguration` hook with mod name, author, and `unblocked` fields. PolyViewer uses this hook before the game bundle loads so the real menu remains interactive on a non-Kodub host.
 - Recording strings are serialized game inputs/state for the real simulation; PolyViewer must not invent a replacement format.
-- Track import strings use the `PolyTrack1` prefix and compressed/binary decoding. Recording format investigation remains separate and incomplete.
+- Track import strings use the `PolyTrack1` prefix and compressed/binary decoding. Vehicle recordings are decoded by the verified native recording class's static `deserialize` method; PolyViewer invokes that method rather than reimplementing its compressed binary format.
 - Dynamic webpack chunks `112`, `535`, `604`, and `657` are required for verifier, multiplayer, garage/customization, and admin paths.
 
 ## Current bridge
@@ -47,11 +47,12 @@ Timeline markers are keyed by stable ID instead of being recreated on every stor
 
 The replay bridge is injected only into the uniquely verified 0.6.2 replay-preview class. It publishes lifecycle, duration, loaded frame count, current frame, primary real car, and one external driver callback. `ReplayBridge` owns that callback and is the only adapter between `MasterTimeline` and minified PolyTrack internals. The original preview state still performs frame application, cleanup, car visual updates, environment updates, and rendering. Exact anchors are counted and the build fails closed if any anchor changes.
 
+The same narrow bridge now owns imported replay lifecycle. It resolves the recording constructor from the already-running main replay and calls its exact static `deserialize` entry point. A valid import receives the same native `Car` class and dependencies as the original Watch constructor, its own strict replay buffer, and a non-realtime simulation-worker car targeting the shared replay duration. The entry is appended to Watch's real replay array, so its existing state application, `Car.update`, wheel/suspension/steering visuals, camera updates, and cleanup loops process imported cars without a parallel fake renderer. `loadedFrames` is the minimum across all entries, preventing the master clock from outrunning a newly imported worker. Import failure is surfaced; there is no fallback recording representation.
+
 ## Known unknowns to resolve next
 
-- Exact recording-string parser entry point and recording version fields.
 - Stable car scene nodes and material ownership for per-replay opacity.
-- Existing replay/ghost lifecycle suitable for large batch imports.
+- Performance and memory behavior of the native replay lifecycle at 5, 10, and 20 simultaneous imports.
 - Exact reconstruction policy for history-dependent particles across arbitrary long seeks beyond the native reset behavior.
 - Offline audio evaluation and WebCodecs/muxer support for final export.
 

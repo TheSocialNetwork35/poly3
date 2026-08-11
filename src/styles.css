@@ -127,6 +127,57 @@
 }
 .polyviewer-shell.is-active .polyviewer-add-point { display: block; }
 .polyviewer-add-point:hover { background: rgb(75 125 255 / 42%); }
+.polyviewer-replays {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+  color: rgb(255 255 255 / 55%);
+  font: 11px/1 system-ui, sans-serif;
+}
+.polyviewer-shell.is-active .polyviewer-replays { display: flex; }
+.polyviewer-add-replay {
+  padding: 7px 9px;
+  border: 1px solid rgb(255 255 255 / 15%);
+  border-radius: 4px;
+  color: white;
+  background: rgb(255 255 255 / 9%);
+  font: 10px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-add-replay:disabled { cursor: not-allowed; opacity: 0.35; }
+.polyviewer-replay-dialog {
+  width: min(460px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 0;
+  border: 2px solid rgb(75 125 255 / 70%);
+  border-radius: 8px;
+  color: white;
+  background: #121936;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 60%);
+  font-family: "Forced Square", system-ui, sans-serif;
+}
+.polyviewer-replay-dialog::backdrop { background: rgb(0 0 0 / 62%); backdrop-filter: blur(3px); }
+.polyviewer-replay-dialog form { display: grid; gap: 13px; padding: 18px; }
+.polyviewer-replay-dialog strong { font-size: 17px; }
+.polyviewer-replay-dialog label { display: grid; gap: 6px; color: rgb(255 255 255 / 65%); font: 11px/1.2 system-ui, sans-serif; }
+.polyviewer-replay-dialog input,
+.polyviewer-replay-dialog textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 4px;
+  color: white;
+  background: rgb(0 0 0 / 24%);
+  font: 12px/1.35 system-ui, sans-serif;
+}
+.polyviewer-replay-dialog textarea { min-height: 130px; resize: vertical; font-family: ui-monospace, monospace; }
+.polyviewer-replay-dialog form > div { display: flex; justify-content: flex-end; gap: 7px; }
+.polyviewer-replay-dialog button { padding: 9px 12px; border: 0; border-radius: 4px; color: white; background: rgb(255 255 255 / 12%); cursor: pointer; }
+.polyviewer-replay-dialog button[type="submit"] { background: var(--pv-blue, #4b7dff); }
+.polyviewer-replay-error { min-height: 15px; margin: 0; color: #ff9f9f; font: 11px/1.3 system-ui, sans-serif; }
 .polyviewer-point-editor {
   display: none;
   margin-top: 10px;

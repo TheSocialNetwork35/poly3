@@ -22,6 +22,9 @@ const shell = new EditorShell({
     selectCameraPoint(duplicate.id);
   },
   onDeleteCameraPoint: deleteCameraPoint,
+  onAddReplay: (recordingString, name) => {
+    replayBridge?.addReplay(recordingString, name);
+  },
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -61,6 +64,7 @@ void waitForPolyTrackBridge()
     replayBridge = new ReplayBridge(bridge, masterTimeline, {
       onChange: (status) => {
         replayTimeline.update(status);
+        shell.setReplays(status.connected, status.replays);
         if (status.playing) {
           const cameraState = evaluateCameraPath(cameraPoints.points, status.timeMicroseconds);
           if (cameraState) cameraController?.applyState(cameraState);

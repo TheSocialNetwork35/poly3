@@ -14,6 +14,7 @@ export interface ReplayBridgeStatus {
   durationMicroseconds: number;
   loadedMicroseconds: number;
   nativeCameraAvailable: boolean;
+  replays: PolyViewerReplaySummary[];
 }
 
 /**
@@ -56,6 +57,19 @@ export class ReplayBridge {
 
   get nativeCameraPose(): PolyTrackCameraPose | null {
     return this.#runtimeReplay?.nativeCameraPose ?? null;
+  }
+
+  get replays(): PolyViewerReplaySummary[] {
+    return this.#runtimeReplay?.listReplays() ?? [];
+  }
+
+  addReplay(recordingString: string, name?: string): PolyViewerReplaySummary {
+    const replay = this.#runtimeReplay;
+    if (!replay) throw new Error("Open a PolyTrack replay before adding another recording.");
+    this.timeline.pause();
+    const added = replay.addReplay(recordingString, name);
+    this.#notify();
+    return added;
   }
 
   setActive(active: boolean): void {
@@ -181,6 +195,7 @@ export class ReplayBridge {
       durationMicroseconds: this.timeline.durationMicroseconds,
       loadedMicroseconds: (replay?.loadedFrames ?? 0) * MICROSECONDS_PER_FRAME,
       nativeCameraAvailable: replay?.nativeCameraPose !== null && replay?.nativeCameraPose !== undefined,
+      replays: replay?.listReplays() ?? [],
     });
   }
 }
