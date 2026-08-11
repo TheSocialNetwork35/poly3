@@ -15,6 +15,7 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Four camera modes are available through one simple control: Free, Fixed, position-only Follow, and vehicle-relative Attached.
 - Follow and Attached use the real replay car's position/quaternion and remain disabled until a real replay target exists.
 - **Add Camera Point** captures a stable, complete camera state at the exact integer-microsecond playhead time and adds a marker to the timeline.
+- Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
 
 Replay importing, camera keyframes, project files, and deterministic video export are not yet presented as finished features.
 
@@ -67,7 +68,7 @@ PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay pre
 
 Changing modes preserves the visible camera pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping.
 
-Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Point selection, dragging, deletion, updating, and duplication remain the next editing stage.
+Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Clicking a marker pauses and seeks to its exact time, applies its camera state, and opens the editor. Dragging uses a four-pixel threshold, clamps to replay duration, and preserves the stable point ID.
 
 ## Upstream integrity
 

@@ -10,13 +10,31 @@ import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 const masterTimeline = new MasterTimeline();
 const cameraPoints = new CameraKeyframeStore();
 let cameraController: FreeCameraController | null = null;
+let selectedCameraPointId: string | null = null;
 const shell = new EditorShell({
   onCameraModeChange: (mode) => cameraController?.setMode(mode),
   onAddCameraPoint: () => {
     if (cameraController) {
-      cameraPoints.add(masterTimeline.timeMicroseconds, cameraController.captureState());
+      const point = cameraPoints.add(
+        masterTimeline.timeMicroseconds,
+        cameraController.captureState(),
+      );
+      selectCameraPoint(point.id);
     }
   },
+  onMoveCameraPoint: moveCameraPoint,
+  onUpdateCameraPoint: (id) => {
+    const point = cameraPoints.get(id);
+    if (point && cameraController) {
+      cameraPoints.update(id, point.timeMicroseconds, cameraController.captureState());
+      selectCameraPoint(id);
+    }
+  },
+  onDuplicateCameraPoint: (id) => {
+    const duplicate = cameraPoints.duplicate(id);
+    selectCameraPoint(duplicate.id);
+  },
+  onDeleteCameraPoint: deleteCameraPoint,
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -26,8 +44,13 @@ const replayTimeline = new ReplayTimeline({
   onRestart: () => replayBridge?.restart(),
   onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
   onSeek: (timeMicroseconds) => replayBridge?.seekMicroseconds(timeMicroseconds),
+  onSelectCameraPoint: selectCameraPoint,
+  onMoveCameraPoint: moveCameraPoint,
 });
-cameraPoints.subscribe((points) => replayTimeline.setCameraPoints(points));
+cameraPoints.subscribe((points) => {
+  replayTimeline.setCameraPoints(points);
+  if (selectedCameraPointId) shell.setSelectedCameraPoint(cameraPoints.get(selectedCameraPointId));
+});
 
 void waitForPolyTrackBridge()
   .then((bridge) => {
@@ -74,4 +97,32 @@ async function waitForPolyTrackBridge(timeoutMilliseconds = 30_000): Promise<Pol
     await new Promise<void>((resolve) => setTimeout(resolve, 25));
   }
   throw new Error("Timed out while waiting for the verified PolyTrack 0.6.2 runtime.");
+}
+
+function selectCameraPoint(id: string): void {
+  const point = cameraPoints.get(id);
+  if (!point) return;
+  selectedCameraPointId = id;
+  replayBridge?.pause();
+  replayBridge?.seekMicroseconds(point.timeMicroseconds);
+  cameraController?.applyState(point.state);
+  replayTimeline.setSelectedCameraPoint(id);
+  shell.setSelectedCameraPoint(point);
+}
+
+function moveCameraPoint(id: string, timeMicroseconds: number): void {
+  const clamped = Math.max(0, Math.min(masterTimeline.durationMicroseconds, timeMicroseconds));
+  cameraPoints.move(id, clamped);
+  if (selectedCameraPointId === id) {
+    replayBridge?.seekMicroseconds(clamped);
+    shell.setSelectedCameraPoint(cameraPoints.get(id));
+  }
+}
+
+function deleteCameraPoint(id: string): void {
+  cameraPoints.remove(id);
+  if (selectedCameraPointId !== id) return;
+  selectedCameraPointId = null;
+  replayTimeline.setSelectedCameraPoint(null);
+  shell.setSelectedCameraPoint(null);
 }

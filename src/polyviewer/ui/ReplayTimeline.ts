@@ -6,6 +6,8 @@ interface ReplayTimelineActions {
   onRestart: () => void;
   onStep: (deltaMicroseconds: number) => void;
   onSeek: (timeMicroseconds: number) => void;
+  onSelectCameraPoint: (id: string) => void;
+  onMoveCameraPoint: (id: string, timeMicroseconds: number) => void;
 }
 
 const MICROSECONDS_PER_FRAME = 1_000;
@@ -19,8 +21,12 @@ export class ReplayTimeline {
   #markers: HTMLElement;
   #dragging = false;
   #durationMicroseconds = 0;
+  #selectedCameraPointId: string | null = null;
+  #pointElements = new Map<string, HTMLButtonElement>();
+  #actions: ReplayTimelineActions;
 
   constructor(actions: ReplayTimelineActions) {
+    this.#actions = actions;
     this.element = document.createElement("section");
     this.element.className = "polyviewer-timeline";
     this.element.setAttribute("aria-label", "PolyViewer replay timeline");
@@ -91,17 +97,89 @@ export class ReplayTimeline {
   }
 
   setCameraPoints(points: readonly CameraKeyframe[]): void {
-    this.#markers.replaceChildren(...points.map((point) => {
-      const marker = document.createElement("button");
-      marker.type = "button";
-      marker.className = "polyviewer-keyframe-marker";
+    const liveIds = new Set(points.map((point) => point.id));
+    for (const [id, marker] of this.#pointElements) {
+      if (!liveIds.has(id)) {
+        marker.remove();
+        this.#pointElements.delete(id);
+      }
+    }
+    for (const point of points) {
+      let marker = this.#pointElements.get(point.id);
+      if (!marker) {
+        marker = this.#createCameraPointMarker(point.id, point.timeMicroseconds);
+        this.#pointElements.set(point.id, marker);
+        this.#markers.append(marker);
+      }
       marker.title = `Camera point at ${formatTime(point.timeMicroseconds)}`;
       const duration = Math.max(1, this.#durationMicroseconds);
       marker.style.left = `${Math.max(0, Math.min(100, point.timeMicroseconds / duration * 100))}%`;
-      marker.dataset.cameraPointId = point.id;
-      return marker;
-    }));
+      marker.dataset.timeMicroseconds = point.timeMicroseconds.toString();
+      marker.classList.toggle("is-selected", point.id === this.#selectedCameraPointId);
+    }
   }
+
+  setSelectedCameraPoint(id: string | null): void {
+    this.#selectedCameraPointId = id;
+    for (const [pointId, marker] of this.#pointElements) {
+      marker.classList.toggle("is-selected", pointId === id);
+    }
+  }
+
+  #createCameraPointMarker(id: string, initialTimeMicroseconds: number): HTMLButtonElement {
+    const marker = document.createElement("button");
+    marker.type = "button";
+    marker.className = "polyviewer-keyframe-marker";
+    marker.dataset.cameraPointId = id;
+    marker.dataset.timeMicroseconds = initialTimeMicroseconds.toString();
+    marker.addEventListener("click", () => this.#actions.onSelectCameraPoint(id));
+    marker.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const startX = event.clientX;
+      const startTime = Number.parseInt(marker.dataset.timeMicroseconds ?? "0", 10);
+      let moved = false;
+      marker.setPointerCapture(event.pointerId);
+      const onMove = (moveEvent: PointerEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        if (!moved && Math.abs(deltaX) < 4) return;
+        moved = true;
+        const width = this.#markers.getBoundingClientRect().width;
+        this.#actions.onMoveCameraPoint(
+          id,
+          calculateDraggedCameraPointTime(
+            startTime,
+            deltaX,
+            width,
+            this.#durationMicroseconds,
+          ),
+        );
+      };
+      const onEnd = () => {
+        marker.removeEventListener("pointermove", onMove);
+        marker.removeEventListener("pointerup", onEnd);
+        marker.removeEventListener("pointercancel", onEnd);
+        this.#actions.onSelectCameraPoint(id);
+      };
+      marker.addEventListener("pointermove", onMove);
+      marker.addEventListener("pointerup", onEnd);
+      marker.addEventListener("pointercancel", onEnd);
+      event.preventDefault();
+    });
+    return marker;
+  }
+}
+
+export function calculateDraggedCameraPointTime(
+  startTimeMicroseconds: number,
+  deltaPixels: number,
+  trackWidthPixels: number,
+  durationMicroseconds: number,
+): number {
+  if (!Number.isFinite(trackWidthPixels) || trackWidthPixels <= 0) return startTimeMicroseconds;
+  const next = Math.round(
+    startTimeMicroseconds + deltaPixels / trackWidthPixels * durationMicroseconds,
+  );
+  return Math.max(0, Math.min(durationMicroseconds, next));
 }
 
 function formatTime(microseconds: number): string {

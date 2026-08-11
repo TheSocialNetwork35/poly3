@@ -28,6 +28,8 @@ describe("CameraKeyframeStore", () => {
     store.subscribe(listener);
     const original = store.add(1_000_000, cameraState);
     const copy = store.duplicate(original.id);
+    expect(copy.id).not.toBe(original.id);
+    expect(store.get(copy.id)).toBe(copy);
     store.move(copy.id, 2_000_000);
     store.update(original.id, 500_000, { ...cameraState, fov: 55 });
     expect(store.points.map((point) => point.timeMicroseconds)).toEqual([500_000, 2_000_000]);

@@ -15,6 +15,10 @@ export class CameraKeyframeStore {
     return this.#points;
   }
 
+  get(id: string): CameraKeyframe | null {
+    return this.#points.find((point) => point.id === id) ?? null;
+  }
+
   add(timeMicroseconds: number, state: CinematicCameraState): CameraKeyframe {
     requireTime(timeMicroseconds);
     const point: CameraKeyframe = {
