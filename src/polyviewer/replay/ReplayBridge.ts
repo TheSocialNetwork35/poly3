@@ -58,6 +58,10 @@ export class ReplayBridge {
     return this.#active;
   }
 
+  get primaryCar(): PolyTrackCarTarget | null {
+    return this.#runtimeReplay?.primaryCar ?? null;
+  }
+
   setActive(active: boolean): void {
     if (active === this.#active) return;
     this.#active = active;

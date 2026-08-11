@@ -70,6 +70,50 @@
 .polyviewer-shell dt { color: rgb(255 255 255 / 45%); }
 .polyviewer-shell dd { margin: 0; color: rgb(255 255 255 / 84%); }
 
+.polyviewer-camera-modes {
+  display: none;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+}
+.polyviewer-shell.is-active .polyviewer-camera-modes { display: block; }
+.polyviewer-camera-modes > span {
+  display: block;
+  margin-bottom: 7px;
+  color: rgb(255 255 255 / 55%);
+  font: 11px/1 system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.polyviewer-camera-modes > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.polyviewer-camera-modes button {
+  min-width: 0;
+  padding: 7px 5px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 4px;
+  color: rgb(255 255 255 / 72%);
+  background: rgb(255 255 255 / 7%);
+  font: 10px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-camera-modes button:hover:not(:disabled) { background: rgb(255 255 255 / 14%); }
+.polyviewer-camera-modes button.is-selected {
+  border-color: rgb(75 125 255 / 70%);
+  color: white;
+  background: rgb(75 125 255 / 45%);
+}
+.polyviewer-camera-modes button:disabled { cursor: not-allowed; opacity: 0.3; }
+.polyviewer-camera-target {
+  display: block;
+  margin-top: 7px;
+  color: rgb(255 255 255 / 45%);
+  font: 10px/1.2 system-ui, sans-serif;
+}
+
 .polyviewer-timeline {
   --pv-blue: #4b7dff;
   position: fixed;

@@ -4,6 +4,11 @@ import { MasterTimeline } from "../src/polyviewer/timeline/MasterTimeline";
 
 class FakeWindow extends EventTarget {}
 
+const fakeCar: PolyTrackCarTarget = {
+  getPosition: () => ({ x: 0, y: 0, z: 0 }),
+  getQuaternion: () => ({ x: 0, y: 0, z: 0, w: 1 }),
+};
+
 describe("ReplayBridge", () => {
   beforeEach(() => {
     vi.stubGlobal("window", new FakeWindow());
@@ -22,7 +27,7 @@ describe("ReplayBridge", () => {
       durationFrames: 2_000,
       loadedFrames: 2_000,
       timeFrames: 0,
-      primaryCar: {},
+      primaryCar: fakeCar,
       setDriver(value: PolyTrackReplayDriver | null) { driver = value; },
       setNativePaused(value: boolean) { nativePaused = value; },
       seekFrame() {},
@@ -50,7 +55,7 @@ describe("ReplayBridge", () => {
       durationFrames: 5_000,
       loadedFrames: 1_250,
       timeFrames: 0,
-      primaryCar: {},
+      primaryCar: fakeCar,
       setDriver(value: PolyTrackReplayDriver | null) { this.driver = value; },
       setNativePaused() {},
       seekFrame() {},

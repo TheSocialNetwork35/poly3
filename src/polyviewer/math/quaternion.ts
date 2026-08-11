@@ -34,6 +34,17 @@ export function multiplyQuaternions(a: QuaternionValue, b: QuaternionValue): Qua
   };
 }
 
+export function invertQuaternion(q: QuaternionValue): QuaternionValue {
+  const lengthSquared = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+  if (lengthSquared === 0) return { x: 0, y: 0, z: 0, w: 1 };
+  return {
+    x: -q.x / lengthSquared,
+    y: -q.y / lengthSquared,
+    z: -q.z / lengthSquared,
+    w: q.w / lengthSquared,
+  };
+}
+
 export function rotateVector(vector: VectorValue, q: QuaternionValue): VectorValue {
   const tx = 2 * (q.y * vector.z - q.z * vector.y);
   const ty = 2 * (q.z * vector.x - q.x * vector.z);
@@ -46,9 +57,27 @@ export function rotateVector(vector: VectorValue, q: QuaternionValue): VectorVal
 }
 
 export function yawPitchFromQuaternion(q: QuaternionValue): { yaw: number; pitch: number } {
-  const forward = rotateVector({ x: 0, y: 0, z: -1 }, q);
+  const { yaw, pitch } = yawPitchRollFromQuaternion(q);
+  return { yaw, pitch };
+}
+
+export function yawPitchRollFromQuaternion(
+  q: QuaternionValue,
+): { yaw: number; pitch: number; roll: number } {
+  const m11 = 1 - 2 * (q.y * q.y + q.z * q.z);
+  const m13 = 2 * (q.x * q.z + q.y * q.w);
+  const m21 = 2 * (q.x * q.y + q.z * q.w);
+  const m22 = 1 - 2 * (q.x * q.x + q.z * q.z);
+  const m23 = 2 * (q.y * q.z - q.x * q.w);
+  const m31 = 2 * (q.x * q.z - q.y * q.w);
+  const m33 = 1 - 2 * (q.x * q.x + q.y * q.y);
+  const pitch = Math.asin(Math.max(-1, Math.min(1, -m23)));
+  if (Math.abs(m23) < 0.9999999) {
+    return { yaw: Math.atan2(m13, m33), pitch, roll: Math.atan2(m21, m22) };
+  }
   return {
-    yaw: Math.atan2(-forward.x, -forward.z),
-    pitch: Math.asin(Math.max(-1, Math.min(1, forward.y))),
+    yaw: Math.atan2(-m31, m11),
+    pitch,
+    roll: 0,
   };
 }

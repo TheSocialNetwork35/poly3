@@ -33,10 +33,15 @@ declare global {
     readonly durationFrames: number;
     readonly loadedFrames: number;
     readonly timeFrames: number;
-    readonly primaryCar: object | null;
+    readonly primaryCar: PolyTrackCarTarget | null;
     setDriver(driver: PolyTrackReplayDriver | null): void;
     setNativePaused(paused: boolean): void;
     seekFrame(frame: number): void;
+  }
+
+  interface PolyTrackCarTarget {
+    getPosition(): { x: number; y: number; z: number };
+    getQuaternion(): { x: number; y: number; z: number; w: number };
   }
 
   interface PolyTrackRenderer {

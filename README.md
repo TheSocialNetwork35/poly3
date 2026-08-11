@@ -12,6 +12,8 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Replay transport supports play, pause, restart, scrubbing, backward seeking, and small/large stepping.
 - The bottom timeline appears only while PolyViewer is active and reports replay preparation progress honestly.
 - Replay evaluation stays on PolyTrack's native worker-generated frame buffer and `Car.setCarState` / `Car.update` visual path.
+- Four camera modes are available through one simple control: Free, Fixed, position-only Follow, and vehicle-relative Attached.
+- Follow and Attached use the real replay car's position/quaternion and remain disabled until a real replay target exists.
 
 Replay importing, camera keyframes, project files, and deterministic video export are not yet presented as finished features.
 
@@ -54,6 +56,15 @@ When pointer lock is released, click the game canvas to capture the mouse again.
 - `↺`: pause and return to the start
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
+
+## Camera modes
+
+- **Free:** independent six-axis camera
+- **Fixed:** preserves an exact world-space shot while the game continues
+- **Follow:** follows the main replay's position while keeping an independent world orientation
+- **Attached:** stores camera position and rotation in the replay car's local space for cockpit, wheel, bumper, roof, and other mounted shots
+
+Changing modes preserves the visible camera pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping.
 
 ## Upstream integrity
 
