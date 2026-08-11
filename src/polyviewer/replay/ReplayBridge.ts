@@ -17,6 +17,11 @@ export interface ReplayBridgeStatus {
   replays: PolyViewerReplaySummary[];
 }
 
+export interface ReplayEditorState {
+  timeMicroseconds: number;
+  playing: boolean;
+}
+
 /**
  * Owns the single connection between PolyViewer's deterministic clock and the
  * verified PolyTrack replay-preview state. PolyTrack still evaluates every car
@@ -117,6 +122,15 @@ export class ReplayBridge {
     this.timeline.seekMicroseconds(safeTime);
     replay.evaluateFrame(Math.round(safeTime / MICROSECONDS_PER_FRAME), advanceVisuals);
     this.#notify();
+  }
+
+  captureEditorState(): ReplayEditorState {
+    return { timeMicroseconds: this.timeline.timeMicroseconds, playing: this.timeline.playing };
+  }
+
+  restoreEditorState(state: ReplayEditorState): void {
+    this.evaluateExactFrame(state.timeMicroseconds, false);
+    if (state.playing) this.play();
   }
 
   setActive(active: boolean): void {

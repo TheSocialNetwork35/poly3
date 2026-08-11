@@ -20,7 +20,7 @@ describe("SceneEvaluator", () => {
       { id: "a", timeMicroseconds: 0, state: state(0), interpolation: "smooth" },
       { id: "b", timeMicroseconds: 1_000_000, state: state(10), interpolation: "smooth" },
     ];
-    const replay = { evaluateExactFrame: vi.fn() };
+    const replay = createReplay();
     const camera = { applyState: vi.fn() };
     const evaluator = new SceneEvaluator(() => points, replay, camera);
 
@@ -37,10 +37,18 @@ describe("SceneEvaluator", () => {
     const point: CameraKeyframe = {
       id: "exact", timeMicroseconds: 2_000_000, state: state(7), interpolation: "smooth",
     };
-    const replay = { evaluateExactFrame: vi.fn() };
+    const replay = createReplay();
     const evaluator = new SceneEvaluator(() => [point], replay, { applyState: vi.fn() });
 
     expect(evaluator.evaluateRenderFrame(2_000_000, false)).toMatchObject(point.state);
     expect(replay.evaluateExactFrame).toHaveBeenCalledWith(2_000_000, false);
   });
 });
+
+function createReplay() {
+  return {
+    evaluateExactFrame: vi.fn(),
+    captureEditorState: vi.fn(() => ({ timeMicroseconds: 0, playing: false })),
+    restoreEditorState: vi.fn(),
+  };
+}

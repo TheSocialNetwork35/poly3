@@ -1,9 +1,12 @@
 import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
 import { evaluateCameraPath } from "../camera/CameraPathEvaluator";
 import type { CinematicCameraState } from "../camera/FreeCameraController";
+import type { ReplayEditorState } from "../replay/ReplayBridge";
 
 export interface SceneReplayEvaluator {
   evaluateExactFrame(timeMicroseconds: number, advanceVisuals: boolean): void;
+  captureEditorState(): ReplayEditorState;
+  restoreEditorState(state: ReplayEditorState): void;
 }
 
 export interface SceneCameraTarget {
@@ -35,6 +38,15 @@ export class SceneEvaluator {
   ): CinematicCameraState | null {
     this.#replay.evaluateExactFrame(timeMicroseconds, advanceVisuals);
     return this.#evaluateCamera(timeMicroseconds);
+  }
+
+  captureEditorState(): ReplayEditorState {
+    return this.#replay.captureEditorState();
+  }
+
+  restoreEditorState(state: ReplayEditorState): void {
+    this.#replay.restoreEditorState(state);
+    this.#evaluateCamera(state.timeMicroseconds);
   }
 
   #evaluateCamera(timeMicroseconds: number): CinematicCameraState | null {

@@ -74,6 +74,9 @@ declare global {
     readonly scene: PolyTrackScene;
     readonly camera: PolyTrackCamera;
     readonly canvas: HTMLCanvasElement;
+    polyviewerBeginCapture(width: number, height: number): void;
+    polyviewerRenderFrame(): void;
+    polyviewerEndCapture(): void;
   }
 
   interface PolyTrackScene {

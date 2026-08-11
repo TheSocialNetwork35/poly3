@@ -20,8 +20,9 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
 - Preview and future export now share one `SceneEvaluator` for Camera Point evaluation. Its exact-frame path can synchronously advance the native replay in one-millisecond steps through real `Car.setCarState`, `Car.update`, and native camera updates.
+- The deterministic frame renderer uses rational integer timestamps, pre-rolls visual history, temporarily configures the real PolyTrack WebGL renderer at the requested output size, captures frames sequentially, supports cancellation/progress, and restores editor time/playback plus renderer size/aspect in `finally`.
 
-The 5/10/20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
+The 5/10/20-car performance qualification, project files, and encoded downloadable video export are not yet presented as finished features. The frame renderer is complete, but the Render button remains withheld until Stage 16 can deliver a real muxed video rather than a folder of PNG placeholders.
 
 ## Upstream online-service limitation
 

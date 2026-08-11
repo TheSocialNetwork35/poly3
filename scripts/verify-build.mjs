@@ -37,6 +37,9 @@ if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.des
 if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvEntry.car.update(.001)")) {
   throw new Error("The production bundle does not contain exact native frame evaluation.");
 }
+if (!bundle.includes("polyviewerBeginCapture(e,t)") || !bundle.includes("polyviewerRenderFrame()") || !bundle.includes("polyviewerEndCapture()")) {
+  throw new Error("The production bundle does not contain deterministic WebGL capture controls.");
+}
 if (bundle.split('"/api/polytrack/"+').length - 1 !== 8) {
   throw new Error("The production bundle does not route all eight HTTP API endpoints through Pages.");
 }
