@@ -47,6 +47,7 @@ declare global {
     setDriver(driver: PolyTrackReplayDriver | null): void;
     setNativePaused(paused: boolean): void;
     seekFrame(frame: number): void;
+    evaluateFrame(frame: number, advanceVisuals: boolean): void;
   }
 
   interface PolyViewerReplaySummary {

@@ -53,6 +53,8 @@ Replay IDs remain stable for the lifetime of the Watch scene. UI settings call t
 
 Clean Preview is a reversible presentation state, not DOM destruction. It toggles one class on `body`; CSS hides the native `#ui` while preserving the separate canvas and PolyViewer controls, and explicitly re-exposes open dialogs, alerts, assertive live regions, and error elements. Disabling PolyViewer or disposing its controller removes the class, restoring the original UI without trying to reconstruct upstream nodes or inline styles.
 
+`SceneEvaluator` is the single camera-path entry point for interactive preview and offline rendering. Preview supplies the current integer-microsecond master time; render first asks `ReplayBridge` for an exact native frame and then calls the identical private camera evaluation method. The runtime exact-frame operation does not move meshes directly. Sequential forward evaluation visits every intermediate one-millisecond replay state and calls the original `Car.setCarState`, `Car.update(.001)`, and `Car.updateCameras(.001)` paths before the requested output timestamp. Backward or non-advancing evaluation uses the native discontinuity/reset path with a zero visual delta. This preserves deterministic history for wheel rotation, skid/particle cleanup, and stateful native orbit cameras while allowing output frames to be sampled at a different FPS.
+
 ## Known unknowns to resolve next
 
 - Stable car scene nodes and material ownership for per-replay opacity.

@@ -30,6 +30,7 @@ function replayManagementMethods() {
     setReplayOpacity() {},
     setReplayOffset() {},
     removeReplay() {},
+    evaluateFrame() {},
   };
 }
 

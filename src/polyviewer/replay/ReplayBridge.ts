@@ -109,6 +109,16 @@ export class ReplayBridge {
     this.#notify();
   }
 
+  evaluateExactFrame(timeMicroseconds: number, advanceVisuals: boolean): void {
+    const replay = this.#requireRuntimeReplay();
+    const maximum = Math.min(replay.durationFrames, replay.loadedFrames) * MICROSECONDS_PER_FRAME;
+    const safeTime = Math.max(0, Math.min(maximum, Math.round(timeMicroseconds)));
+    this.timeline.pause();
+    this.timeline.seekMicroseconds(safeTime);
+    replay.evaluateFrame(Math.round(safeTime / MICROSECONDS_PER_FRAME), advanceVisuals);
+    this.#notify();
+  }
+
   setActive(active: boolean): void {
     if (active === this.#active) return;
     this.#active = active;

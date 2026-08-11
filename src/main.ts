@@ -1,10 +1,10 @@
 import "./styles.css";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
-import { evaluateCameraPath } from "./polyviewer/camera/CameraPathEvaluator";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ShortcutManager } from "./polyviewer/input/ShortcutManager";
 import { CleanPreviewController } from "./polyviewer/preview/CleanPreviewController";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
+import { SceneEvaluator } from "./polyviewer/scene/SceneEvaluator";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
@@ -40,6 +40,7 @@ let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
 let replayDurationMicroseconds = 0;
 let nativeCameraWasAvailable = false;
+let sceneEvaluator: SceneEvaluator | null = null;
 const replayTimeline = new ReplayTimeline({
   onTogglePlayback: () => replayBridge?.togglePlayback(),
   onRestart: () => replayBridge?.restart(),
@@ -76,10 +77,7 @@ void waitForPolyTrackBridge()
       onChange: (status) => {
         replayTimeline.update(status);
         shell.setReplays(status.connected, status.replays);
-        if (status.playing) {
-          const cameraState = evaluateCameraPath(cameraPoints.points, status.timeMicroseconds);
-          if (cameraState) cameraController?.applyState(cameraState);
-        }
+        if (status.active) sceneEvaluator?.evaluatePreview(status.timeMicroseconds);
         if (status.durationMicroseconds !== replayDurationMicroseconds) {
           replayTimeline.setCameraPoints(cameraPoints.points);
           replayDurationMicroseconds = status.durationMicroseconds;
@@ -102,6 +100,11 @@ void waitForPolyTrackBridge()
         shortcuts.setActive(status.enabled);
       },
     });
+    sceneEvaluator = new SceneEvaluator(
+      () => cameraPoints.points,
+      replayBridge,
+      cameraController,
+    );
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
       cameraController?.dispose();

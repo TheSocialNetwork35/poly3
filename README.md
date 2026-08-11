@@ -19,6 +19,7 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - **Add Replay** accepts a real PolyTrack recording string and passes it to the native 0.6.2 recording deserializer. Imported runs receive a real `Car`, replay-state buffer, and worker simulation and join the original replay update loop.
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
+- Preview and future export now share one `SceneEvaluator` for Camera Point evaluation. Its exact-frame path can synchronously advance the native replay in one-millisecond steps through real `Car.setCarState`, `Car.update`, and native camera updates.
 
 The 5/10/20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
 
