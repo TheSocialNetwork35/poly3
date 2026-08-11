@@ -25,9 +25,10 @@ export function evaluateCameraPath(
   const amount = linear * linear * (3 - 2 * linear);
   const startMode = normalizeCameraMode(start.state.mode);
   const endMode = normalizeCameraMode(end.state.mode);
-  const sameMode = startMode === endMode;
+  const sameReferenceFrame = startMode === endMode
+    && start.state.targetReplayId === end.state.targetReplayId;
   return {
-    mode: sameMode ? startMode : "fixed",
+    mode: sameReferenceFrame ? startMode : "fixed",
     position: lerpVector(start.state.position, end.state.position, amount),
     orientation: slerpQuaternions(start.state.orientation, end.state.orientation, amount),
     fov: lerp(start.state.fov, end.state.fov, amount),
@@ -54,12 +55,20 @@ export function evaluateCameraPath(
       end.state.normalOrientationOffset ?? { x: 0, y: 0, z: 0, w: 1 },
       amount,
     ),
-    modeTransition: sameMode ? undefined : {
+    modeTransition: sameReferenceFrame ? undefined : {
       from: startMode,
       to: endMode,
       amount,
+      fromState: normalizeSnapshot(start.state),
+      toState: normalizeSnapshot(end.state),
     },
   };
+}
+
+function normalizeSnapshot(state: CinematicCameraState): CinematicCameraState {
+  const result = normalizeState(state);
+  result.modeTransition = undefined;
+  return result;
 }
 
 function collapseCoincidentPoints(points: readonly CameraKeyframe[]): CameraKeyframe[] {

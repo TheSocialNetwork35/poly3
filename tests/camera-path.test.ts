@@ -58,11 +58,27 @@ describe("evaluateCameraPath", () => {
       point("wheel", 1_000_000, end),
     ], 500_000)!;
     expect(result.mode).toBe("fixed");
-    expect(result.modeTransition).toEqual({ from: "normal", to: "attached", amount: 0.5 });
+    expect(result.modeTransition).toMatchObject({ from: "normal", to: "attached", amount: 0.5 });
+    expect(result.modeTransition?.fromState?.mode).toBe("normal");
+    expect(result.modeTransition?.toState?.mode).toBe("attached");
     expect(result.position.x).toBeCloseTo(5);
     const forward = rotateVector({ x: 0, y: 0, z: -1 }, result.orientation);
     expect(Number.isFinite(forward.x)).toBe(true);
     expect(Math.hypot(forward.x, forward.y, forward.z)).toBeCloseTo(1);
+  });
+
+  it("crossfades when the target replay changes inside the same camera mode", () => {
+    const start = { ...state(0), mode: "follow" as const, targetReplayId: "run-a" };
+    const end = { ...state(10), mode: "follow" as const, targetReplayId: "run-b" };
+    const result = evaluateCameraPath([
+      point("a", 0, start),
+      point("b", 1_000_000, end),
+    ], 500_000)!;
+
+    expect(result.mode).toBe("fixed");
+    expect(result.modeTransition).toMatchObject({ from: "follow", to: "follow", amount: 0.5 });
+    expect(result.modeTransition?.fromState?.targetReplayId).toBe("run-a");
+    expect(result.modeTransition?.toState?.targetReplayId).toBe("run-b");
   });
 
   it("deterministically uses the latest point when duplicate timestamps exist", () => {

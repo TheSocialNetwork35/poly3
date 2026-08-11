@@ -4,6 +4,7 @@ import {
   multiplyQuaternions,
   quaternionFromYawPitchRoll,
   rotateVector,
+  slerpQuaternions,
   yawPitchRollFromQuaternion,
   type QuaternionValue,
   type VectorValue,
@@ -31,7 +32,7 @@ export interface FreeCameraStatus {
 export type CameraMode = "fixed" | "lookAt" | "normal" | "follow" | "attached";
 export type StoredCameraMode = CameraMode | "free";
 
-export interface CinematicCameraState {
+export interface CameraStateSnapshot {
   mode: StoredCameraMode;
   position: VectorValue;
   orientation: QuaternionValue;
@@ -43,11 +44,18 @@ export interface CinematicCameraState {
   lookAtOffset?: QuaternionValue;
   normalPositionOffset?: VectorValue;
   normalOrientationOffset?: QuaternionValue;
-  modeTransition?: {
-    from: CameraMode;
-    to: CameraMode;
-    amount: number;
-  };
+}
+
+export interface CameraModeTransition {
+  from: CameraMode;
+  to: CameraMode;
+  amount: number;
+  fromState?: CameraStateSnapshot;
+  toState?: CameraStateSnapshot;
+}
+
+export interface CinematicCameraState extends CameraStateSnapshot {
+  modeTransition?: CameraModeTransition;
 }
 
 export class FreeCameraController {
@@ -66,6 +74,7 @@ export class FreeCameraController {
   #lookAtOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
   #normalPositionOffset = { x: 0, y: 0, z: 0 };
   #normalOrientationOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
+  #modeTransition?: CameraModeTransition;
   #targetReplayId = "main";
   #getTarget: (replayId: string) => PolyTrackCarTarget | null;
   #getNativeCameraPose: (replayId: string) => PolyTrackCameraPose | null;
@@ -110,6 +119,7 @@ export class FreeCameraController {
   setTargetReplay(id: string): void {
     if (!id || id === this.#targetReplayId) return;
     const currentPose = this.#evaluatePose(this.#readTargetPose());
+    this.#modeTransition = undefined;
     this.#targetReplayId = id;
     this.#position = { ...currentPose.position };
     this.#captureModeOffsets(this.#readTargetPose(), currentPose.position, currentPose.orientation);
@@ -117,7 +127,7 @@ export class FreeCameraController {
   }
 
   setMode(mode: CameraMode): void {
-    if (mode === this.#mode) return;
+    if (mode === this.#mode && !this.#modeTransition) return;
     const target = this.#readTargetPose();
     const currentPose = this.#evaluatePose(target);
     this.#position = currentPose.position;
@@ -126,6 +136,7 @@ export class FreeCameraController {
     this.#pitch = angles.pitch;
     this.#roll = angles.roll;
     this.#mode = mode;
+    this.#modeTransition = undefined;
     if (mode === "lookAt") {
       // Look At owns camera direction. Entering it must not preserve a hidden
       // manual aim offset from the previous mode.
@@ -142,6 +153,7 @@ export class FreeCameraController {
 
   resetToNormal(): void {
     this.#mode = "normal";
+    this.#modeTransition = undefined;
     this.#normalPositionOffset = { x: 0, y: 0, z: 0 };
     this.#normalOrientationOffset = { x: 0, y: 0, z: 0, w: 1 };
     this.#yaw = 0;
@@ -203,6 +215,7 @@ export class FreeCameraController {
     this.#normalPositionOffset = state.normalPositionOffset ?? { x: 0, y: 0, z: 0 };
     this.#normalOrientationOffset = state.normalOrientationOffset
       ?? { x: 0, y: 0, z: 0, w: 1 };
+    this.#modeTransition = state.modeTransition;
     const orientation = this.#mode === "attached"
       ? state.attachedOrientation
       : this.#mode === "normal"
@@ -313,6 +326,7 @@ export class FreeCameraController {
     if (this.#keys.has("KeyE")) y += 1;
     const magnitude = Math.hypot(x, y, z);
     if (magnitude === 0) return;
+    this.#modeTransition = undefined;
 
     const local = rotateVector({ x: x / magnitude, y: 0, z: z / magnitude }, orientation);
     local.y += y / magnitude;
@@ -342,9 +356,11 @@ export class FreeCameraController {
     if (eventType !== "keydown") return;
     this.#keys.add(code);
     if (code === "KeyZ" && cameraModeAllowsManualRotation(this.#mode)) {
+      this.#modeTransition = undefined;
       this.#roll = Math.max(-Math.PI, this.#roll + 0.02);
     }
     if (code === "KeyC" && cameraModeAllowsManualRotation(this.#mode)) {
+      this.#modeTransition = undefined;
       this.#roll = Math.min(Math.PI, this.#roll - 0.02);
     }
     if (code === "BracketLeft") this.#fov = Math.max(10, this.#fov - 1);
@@ -359,28 +375,25 @@ export class FreeCameraController {
   #onMouseMove = (event: MouseEvent): void => {
     if (!this.#enabled || document.pointerLockElement !== this.#bridge.canvas) return;
     if (!cameraModeAllowsManualRotation(this.#mode)) return;
+    this.#modeTransition = undefined;
     this.#yaw -= event.movementX * 0.002;
     this.#pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, this.#pitch - event.movementY * 0.002));
     this.#onUserEdited?.();
   };
 
   #readTargetPose(): CameraTargetPose | null {
-    const target = this.#getTarget(this.#targetReplayId);
-    if (!target) return null;
-    const position = target.getPosition();
-    const orientation = target.getQuaternion();
-    return {
-      position: { x: position.x, y: position.y, z: position.z },
-      orientation: {
-        x: orientation.x,
-        y: orientation.y,
-        z: orientation.z,
-        w: orientation.w,
-      },
-    };
+    return this.#readTargetPoseFor(this.#targetReplayId);
   }
 
   #evaluatePose(target: CameraTargetPose | null): CameraPose {
+    const transition = this.#modeTransition;
+    if (transition?.fromState && transition.toState) {
+      return resolveCameraModeTransitionPose(
+        transition,
+        (replayId) => this.#readTargetPoseFor(replayId),
+        (replayId) => this.#readNativeCameraPoseFor(replayId),
+      );
+    }
     const localOrientation = quaternionFromYawPitchRoll(this.#yaw, this.#pitch, this.#roll);
     const native = this.#readNativeCameraPose();
     if (this.#mode === "normal" && native) {
@@ -507,7 +520,27 @@ export class FreeCameraController {
   };
 
   #readNativeCameraPose(): CameraPose | null {
-    const pose = this.#getNativeCameraPose(this.#targetReplayId);
+    return this.#readNativeCameraPoseFor(this.#targetReplayId);
+  }
+
+  #readTargetPoseFor(replayId: string): CameraTargetPose | null {
+    const target = this.#getTarget(replayId);
+    if (!target) return null;
+    const position = target.getPosition();
+    const orientation = target.getQuaternion();
+    return {
+      position: { x: position.x, y: position.y, z: position.z },
+      orientation: {
+        x: orientation.x,
+        y: orientation.y,
+        z: orientation.z,
+        w: orientation.w,
+      },
+    };
+  }
+
+  #readNativeCameraPoseFor(replayId: string): CameraPose | null {
+    const pose = this.#getNativeCameraPose(replayId);
     if (!pose) return null;
     return {
       position: { ...pose.position },
@@ -524,12 +557,84 @@ export function cameraModeAllowsManualRotation(mode: StoredCameraMode): boolean 
   return normalizeCameraMode(mode) !== "lookAt";
 }
 
-interface CameraTargetPose {
+export interface CameraTargetPose {
   position: VectorValue;
   orientation: QuaternionValue;
 }
 
-interface CameraPose extends CameraTargetPose {}
+export interface CameraPose extends CameraTargetPose {}
+
+export function resolveCameraSnapshotPose(
+  state: CameraStateSnapshot,
+  target: CameraTargetPose | null,
+  native: CameraPose | null,
+): CameraPose {
+  const mode = normalizeCameraMode(state.mode);
+  const fallback = {
+    position: { ...state.position },
+    orientation: { ...state.orientation },
+  };
+  if (mode === "normal") {
+    if (!native) return fallback;
+    return evaluateNativeCameraOffset(
+      native,
+      state.normalPositionOffset ?? { x: 0, y: 0, z: 0 },
+      state.normalOrientationOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+    );
+  }
+  if (mode === "fixed" || !target) return fallback;
+  if (mode === "lookAt") {
+    return {
+      position: { ...state.position },
+      orientation: multiplyQuaternions(
+        lookAtQuaternion(state.position, target.position),
+        state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+      ),
+    };
+  }
+  if (mode === "follow") {
+    return {
+      position: addVectors(target.position, state.followOffset),
+      orientation: { ...state.orientation },
+    };
+  }
+  return {
+    position: addVectors(target.position, rotateVector(state.attachedOffset, target.orientation)),
+    orientation: multiplyQuaternions(target.orientation, state.attachedOrientation),
+  };
+}
+
+export function blendCameraPoses(from: CameraPose, to: CameraPose, amount: number): CameraPose {
+  const clamped = Math.max(0, Math.min(1, amount));
+  return {
+    position: {
+      x: from.position.x + (to.position.x - from.position.x) * clamped,
+      y: from.position.y + (to.position.y - from.position.y) * clamped,
+      z: from.position.z + (to.position.z - from.position.z) * clamped,
+    },
+    orientation: slerpQuaternions(from.orientation, to.orientation, clamped),
+  };
+}
+
+export function resolveCameraModeTransitionPose(
+  transition: CameraModeTransition,
+  getTarget: (replayId: string) => CameraTargetPose | null,
+  getNative: (replayId: string) => CameraPose | null,
+): CameraPose {
+  if (!transition.fromState || !transition.toState) {
+    throw new Error("Camera mode transition is missing its endpoint states.");
+  }
+  const resolve = (state: CameraStateSnapshot) => resolveCameraSnapshotPose(
+    state,
+    getTarget(state.targetReplayId),
+    getNative(state.targetReplayId),
+  );
+  return blendCameraPoses(
+    resolve(transition.fromState),
+    resolve(transition.toState),
+    transition.amount,
+  );
+}
 
 export function evaluateNativeCameraOffset(
   native: CameraPose,
