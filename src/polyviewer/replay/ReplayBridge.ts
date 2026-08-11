@@ -1,17 +1,9 @@
 import { MasterTimeline } from "../timeline/MasterTimeline";
 
 const MICROSECONDS_PER_FRAME = 1_000;
-const SMALL_STEP_MICROSECONDS = 16_000;
-const LARGE_STEP_MICROSECONDS = 1_000_000;
 
 interface ReplayBridgeOptions {
   onChange?: (status: ReplayBridgeStatus) => void;
-}
-
-interface PolyViewerKeyDetail {
-  eventType: "keydown" | "keyup" | "keypress";
-  code: string;
-  shiftKey?: boolean;
 }
 
 export interface ReplayBridgeStatus {
@@ -42,7 +34,6 @@ export class ReplayBridge {
     this.#onChange = options.onChange;
     window.addEventListener("polytrack:replay-ready", this.#onReplayLifecycle);
     window.addEventListener("polytrack:replay-disposed", this.#onReplayLifecycle);
-    window.addEventListener("polyviewer:key", this.#onKeyInput as EventListener);
     this.#synchronizeRuntimeReplay();
     // Replay previews can be constructed and disposed during the same loading
     // burst. The events are primary; this low-frequency identity check makes
@@ -112,7 +103,6 @@ export class ReplayBridge {
     this.#detachRuntimeReplay();
     window.removeEventListener("polytrack:replay-ready", this.#onReplayLifecycle);
     window.removeEventListener("polytrack:replay-disposed", this.#onReplayLifecycle);
-    window.removeEventListener("polyviewer:key", this.#onKeyInput as EventListener);
     clearInterval(this.#lifecycleMonitor);
   }
 
@@ -174,17 +164,6 @@ export class ReplayBridge {
 
   #onReplayLifecycle = (): void => {
     this.#synchronizeRuntimeReplay();
-  };
-
-  #onKeyInput = (event: CustomEvent<PolyViewerKeyDetail>): void => {
-    if (!this.#active || event.detail.eventType !== "keydown") return;
-    if (event.detail.code === "Space") {
-      this.togglePlayback();
-    } else if (event.detail.code === "ArrowLeft") {
-      this.stepMicroseconds(event.detail.shiftKey ? -LARGE_STEP_MICROSECONDS : -SMALL_STEP_MICROSECONDS);
-    } else if (event.detail.code === "ArrowRight") {
-      this.stepMicroseconds(event.detail.shiftKey ? LARGE_STEP_MICROSECONDS : SMALL_STEP_MICROSECONDS);
-    }
   };
 
   #notify(): void {

@@ -52,10 +52,15 @@ When pointer lock is released, click the game canvas to capture the mouse again.
 ## Replay timeline controls
 
 - `Space`: play or pause
+- `K`: add a Camera Point at the exact playhead time
+- `Shift + K`: update the selected Camera Point from the current camera
+- `Delete / Backspace`: delete the selected Camera Point
 - `Left / Right`: step 16 milliseconds
 - `Shift + Left / Right`: step one second
 - Timeline slider: seek or scrub through worker-produced replay frames
 - `↺`: pause and return to the start
+
+One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing; the replay and camera components no longer register competing keyboard listeners. Shortcuts are ignored while typing in an input, textarea, select, or contenteditable element. F7 is intentionally connected only when the reversible Clean Preview stage is implemented, rather than being shipped as a non-working shortcut.
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
 

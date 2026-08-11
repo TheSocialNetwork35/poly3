@@ -33,6 +33,8 @@ Eight verified HTTP backend call sites are routed to `/api/polytrack/`; two mult
 
 FreeCam uses the real camera. It chains the scene's existing `onBeforeRender` callback and applies its transform immediately before Three.js renders. This prevents normal game camera updates from overwriting the cinematic transform while keeping the original state update and render path intact.
 
+Keyboard input is captured before PolyTrack only while PolyViewer is active (plus the global F6 toggle). The bootstrap bridge rejects editable DOM targets before preventing propagation. `ShortcutManager` then owns all editor mappings and forwards only camera-motion input to the camera controller. This removes the previous competing key listeners in `ReplayBridge` and `FreeCameraController`, prevents K/Delete actions while typing, and suppresses key-repeat duplication for discrete editor actions.
+
 The camera controller obtains the selected target through the replay adapter and calls the real car's public `getPosition()` and `getQuaternion()` methods. Follow stores a world-space positional offset and independent camera quaternion. Attached stores position and orientation in vehicle-local space using quaternion multiplication/inversion. Mode changes first evaluate the current world pose and then derive the new offsets, avoiding visible jumps.
 
 `CameraKeyframeStore` owns the editor's ordered camera-point data independently from the UI. Every point uses the `MasterTimeline` integer-microsecond time and a deep copy of the full cinematic camera state. Mutations preserve stable IDs, re-sort deterministically, and notify timeline consumers. This model is intended to be serialized directly by the later versioned project-file layer.

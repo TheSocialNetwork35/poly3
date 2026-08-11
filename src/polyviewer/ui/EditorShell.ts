@@ -56,6 +56,10 @@ export class EditorShell {
           <div><dt>Roll</dt><dd>Z / C</dd></div>
           <div><dt>FOV</dt><dd>[ / ]</dd></div>
           <div><dt>Speed</dt><dd>Mouse wheel</dd></div>
+          <div><dt>Add point</dt><dd>K</dd></div>
+          <div><dt>Update point</dt><dd>Shift + K</dd></div>
+          <div><dt>Delete point</dt><dd>Delete</dd></div>
+          <div><dt>Play / pause</dt><dd>Space</dd></div>
         </dl>
       </details>
     `;

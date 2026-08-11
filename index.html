@@ -23,10 +23,20 @@
         window.addEventListener(
           eventName,
           (event) => {
+            const target = event.target;
+            const isTyping = target instanceof HTMLElement && (
+              target.matches("input, textarea, select") || target.isContentEditable
+            );
+            if (isTyping) return;
             if (event.code === "F6" || window.__POLYVIEWER_INPUT_ACTIVE__) {
               window.dispatchEvent(
                 new CustomEvent("polyviewer:key", {
-                  detail: { eventType: eventName, code: event.code, shiftKey: event.shiftKey },
+                  detail: {
+                    eventType: eventName,
+                    code: event.code,
+                    shiftKey: event.shiftKey,
+                    repeat: event.repeat,
+                  },
                 }),
               );
               event.preventDefault();

@@ -7,15 +7,11 @@ import {
   type QuaternionValue,
   type VectorValue,
 } from "../math/quaternion";
+import type { PolyViewerKeyDetail } from "../input/ShortcutManager";
 
 interface FreeCameraOptions {
   onChange?: (state: FreeCameraStatus) => void;
   getTarget?: () => PolyTrackCarTarget | null;
-}
-
-interface PolyViewerKeyDetail {
-  eventType: "keydown" | "keyup" | "keypress";
-  code: string;
 }
 
 export interface FreeCameraStatus {
@@ -64,7 +60,6 @@ export class FreeCameraController {
     this.#bridge = bridge;
     this.#onChange = options.onChange;
     this.#getTarget = options.getTarget ?? (() => null);
-    window.addEventListener("polyviewer:key", this.#onKeyInput as EventListener);
     window.addEventListener("mousemove", this.#onMouseMove, true);
     window.addEventListener("wheel", this.#onWheel, { capture: true, passive: false });
     document.addEventListener("pointerlockchange", this.#notify);
@@ -102,6 +97,10 @@ export class FreeCameraController {
     this.#mode = mode;
     this.#captureModeOffsets(target, currentPose.position, currentPose.orientation);
     this.#notify();
+  }
+
+  handleInput(detail: PolyViewerKeyDetail): void {
+    this.#onKeyInput(detail);
   }
 
   captureState(): CinematicCameraState {
@@ -156,7 +155,6 @@ export class FreeCameraController {
   dispose(): void {
     this.setEnabled(false);
     cancelAnimationFrame(this.#frameRequest);
-    window.removeEventListener("polyviewer:key", this.#onKeyInput as EventListener);
     window.removeEventListener("mousemove", this.#onMouseMove, true);
     window.removeEventListener("wheel", this.#onWheel, true);
     document.removeEventListener("pointerlockchange", this.#notify);
@@ -251,12 +249,8 @@ export class FreeCameraController {
     this.#capturePositionOffset(target, nextPosition);
   }
 
-  #onKeyInput = (event: CustomEvent<PolyViewerKeyDetail>): void => {
-    const { code, eventType } = event.detail;
-    if (code === "F6" && eventType === "keydown") {
-      this.toggle();
-      return;
-    }
+  #onKeyInput(detail: PolyViewerKeyDetail): void {
+    const { code, eventType } = detail;
     if (!this.#enabled) return;
     if (eventType === "keyup") {
       this.#keys.delete(code);
@@ -269,7 +263,7 @@ export class FreeCameraController {
     if (code === "BracketLeft") this.#fov = Math.max(10, this.#fov - 1);
     if (code === "BracketRight") this.#fov = Math.min(120, this.#fov + 1);
     this.#notify();
-  };
+  }
 
   #onMouseMove = (event: MouseEvent): void => {
     if (!this.#enabled || document.pointerLockElement !== this.#bridge.canvas) return;

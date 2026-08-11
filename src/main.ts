@@ -2,6 +2,7 @@ import "./styles.css";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
 import { evaluateCameraPath } from "./polyviewer/camera/CameraPathEvaluator";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
+import { ShortcutManager } from "./polyviewer/input/ShortcutManager";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
@@ -13,23 +14,9 @@ let cameraController: FreeCameraController | null = null;
 let selectedCameraPointId: string | null = null;
 const shell = new EditorShell({
   onCameraModeChange: (mode) => cameraController?.setMode(mode),
-  onAddCameraPoint: () => {
-    if (cameraController) {
-      const point = cameraPoints.add(
-        masterTimeline.timeMicroseconds,
-        cameraController.captureState(),
-      );
-      selectCameraPoint(point.id);
-    }
-  },
+  onAddCameraPoint: addCameraPoint,
   onMoveCameraPoint: moveCameraPoint,
-  onUpdateCameraPoint: (id) => {
-    const point = cameraPoints.get(id);
-    if (point && cameraController) {
-      cameraPoints.update(id, point.timeMicroseconds, cameraController.captureState());
-      selectCameraPoint(id);
-    }
-  },
+  onUpdateCameraPoint: updateCameraPoint,
   onDuplicateCameraPoint: (id) => {
     const duplicate = cameraPoints.duplicate(id);
     selectCameraPoint(duplicate.id);
@@ -46,6 +33,19 @@ const replayTimeline = new ReplayTimeline({
   onSeek: (timeMicroseconds) => replayBridge?.seekMicroseconds(timeMicroseconds),
   onSelectCameraPoint: selectCameraPoint,
   onMoveCameraPoint: moveCameraPoint,
+});
+const shortcuts = new ShortcutManager({
+  onToggleEditor: () => cameraController?.toggle(),
+  onTogglePlayback: () => replayBridge?.togglePlayback(),
+  onStep: (deltaMicroseconds) => replayBridge?.stepMicroseconds(deltaMicroseconds),
+  onAddCameraPoint: addCameraPoint,
+  onUpdateCameraPoint: () => {
+    if (selectedCameraPointId) updateCameraPoint(selectedCameraPointId);
+  },
+  onDeleteCameraPoint: () => {
+    if (selectedCameraPointId) deleteCameraPoint(selectedCameraPointId);
+  },
+  onCameraInput: (detail) => cameraController?.handleInput(detail),
 });
 cameraPoints.subscribe((points) => {
   replayTimeline.setCameraPoints(points);
@@ -77,12 +77,14 @@ void waitForPolyTrackBridge()
       onChange: (status) => {
         shell.update(status);
         replayBridge?.setActive(status.enabled);
+        shortcuts.setActive(status.enabled);
       },
     });
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
       cameraController?.dispose();
       replayBridge?.dispose();
+      shortcuts.dispose();
     }, { once: true });
   })
   .catch((error: unknown) => {
@@ -108,6 +110,22 @@ function selectCameraPoint(id: string): void {
   cameraController?.applyState(point.state);
   replayTimeline.setSelectedCameraPoint(id);
   shell.setSelectedCameraPoint(point);
+}
+
+function addCameraPoint(): void {
+  if (!cameraController) return;
+  const point = cameraPoints.add(
+    masterTimeline.timeMicroseconds,
+    cameraController.captureState(),
+  );
+  selectCameraPoint(point.id);
+}
+
+function updateCameraPoint(id: string): void {
+  const point = cameraPoints.get(id);
+  if (!point || !cameraController) return;
+  cameraPoints.update(id, point.timeMicroseconds, cameraController.captureState());
+  selectCameraPoint(id);
 }
 
 function moveCameraPoint(id: string, timeMicroseconds: number): void {
