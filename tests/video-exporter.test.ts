@@ -6,7 +6,12 @@ describe("VideoExporter", () => {
 
   it("reports an honest WebCodecs limitation instead of falling back to screen recording", async () => {
     vi.stubGlobal("VideoEncoder", undefined);
-    const exporter = new VideoExporter({} as never, {} as HTMLCanvasElement);
+    const exporter = new VideoExporter(
+      {} as never,
+      {} as HTMLCanvasElement,
+      null,
+      {} as never,
+    );
     await expect(exporter.export({
       width: 1920,
       height: 1080,

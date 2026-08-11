@@ -133,12 +133,30 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 }
 
 .polyviewer-shell.has-error .polyviewer-status { color: #ff8585; }
-.polyviewer-shell details { margin-top: 5px; border-top: 1px solid rgb(255 255 255 / 10%); }
-.polyviewer-shell summary { padding: 10px 2px 4px; color: rgb(255 255 255 / 72%); font-size: 12px; cursor: pointer; }
-.polyviewer-shell dl { margin: 6px 0 0; font: 11px/1.4 system-ui, sans-serif; }
-.polyviewer-shell dl div { display: flex; justify-content: space-between; gap: 16px; padding: 3px 2px; }
-.polyviewer-shell dt { color: rgb(255 255 255 / 45%); }
-.polyviewer-shell dd { margin: 0; color: rgb(255 255 255 / 84%); }
+.polyviewer-shortcut-sheet {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 100001;
+  display: none;
+  width: min(250px, calc(100vw - 28px));
+  box-sizing: border-box;
+  padding: 8px 11px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 6px;
+  color: white;
+  background: rgb(15 20 46 / 90%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
+  font-family: "Forced Square", system-ui, sans-serif;
+  backdrop-filter: blur(12px);
+  user-select: none;
+}
+.polyviewer-shortcut-sheet.is-active { display: block; }
+.polyviewer-shortcut-sheet summary { color: rgb(255 255 255 / 75%); font-size: 11px; cursor: pointer; }
+.polyviewer-shortcut-sheet dl { margin: 8px 0 2px; font: 10px/1.35 system-ui, sans-serif; }
+.polyviewer-shortcut-sheet dl div { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; }
+.polyviewer-shortcut-sheet dt { color: rgb(255 255 255 / 48%); }
+.polyviewer-shortcut-sheet dd { margin: 0; color: rgb(255 255 255 / 88%); text-align: right; }
 
 .polyviewer-camera-modes {
   display: none;
@@ -196,6 +214,21 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   background: #1a2349;
   font: 10px/1 system-ui, sans-serif;
 }
+.polyviewer-reset-camera {
+  display: none;
+  width: 100%;
+  margin-top: 9px;
+  padding: 11px 10px;
+  border: 1px solid rgb(116 158 255 / 78%);
+  border-radius: 5px;
+  color: white;
+  background: rgb(55 96 205 / 48%);
+  font: 11px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-shell.is-active .polyviewer-reset-camera { display: block; }
+.polyviewer-reset-camera:hover { background: rgb(75 125 255 / 62%); }
+.polyviewer-reset-camera kbd { float: right; color: rgb(255 255 255 / 65%); font: inherit; }
 .polyviewer-add-point {
   display: none;
   width: 100%;

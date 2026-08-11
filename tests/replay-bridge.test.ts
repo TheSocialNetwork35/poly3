@@ -122,7 +122,29 @@ describe("ReplayBridge", () => {
       id: "imported-REAL-RECORDING",
       name: "World Record",
     });
-    expect(addReplay).toHaveBeenCalledWith("REAL-RECORDING", "World Record");
+    expect(addReplay).toHaveBeenCalledWith("REAL-RECORDING", "World Record", {
+      recording: "REAL-RECORDING",
+    });
+    replay.dispose();
+  });
+
+  it("does not crash when Cloudflare briefly serves the older single-replay runtime", () => {
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 1_000, loadedFrames: 1_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      setDriver() {}, setNativePaused() {}, seekFrame() {}, evaluateFrame() {},
+    } as unknown as PolyTrackReplayRuntimeBridge;
+    const timeline = new MasterTimeline();
+    const changes: unknown[] = [];
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      timeline,
+      { onChange: (status) => changes.push(status) },
+    );
+
+    expect(replay.replays).toEqual([expect.objectContaining({ id: "main" })]);
+    expect(replay.getCar("main")).toBe(fakeCar);
+    expect(changes.length).toBeGreaterThan(0);
     replay.dispose();
   });
 

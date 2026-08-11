@@ -24,11 +24,16 @@
           eventName,
           (event) => {
             const target = event.target;
-            const isTyping = target instanceof HTMLElement && (
-              target.matches("input, textarea, select") || target.isContentEditable
+            const isTyping = target instanceof Element && target.closest(
+              "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
             );
-            if (isTyping) return;
-            if (event.code === "F6" || window.__POLYVIEWER_INPUT_ACTIVE__) {
+            if (isTyping) {
+              // PolyTrack installs global keyboard handlers. Stop those handlers
+              // without cancelling the browser's default text-editing behavior.
+              event.stopImmediatePropagation();
+              return;
+            }
+            if (event.code === "Backquote" || event.code === "F6" || window.__POLYVIEWER_INPUT_ACTIVE__) {
               window.dispatchEvent(
                 new CustomEvent("polyviewer:key", {
                   detail: {

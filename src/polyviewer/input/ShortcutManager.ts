@@ -1,3 +1,5 @@
+import type { CameraMode } from "../camera/FreeCameraController";
+
 export interface PolyViewerKeyDetail {
   eventType: "keydown" | "keyup" | "keypress";
   code: string;
@@ -13,6 +15,8 @@ interface ShortcutActions {
   onUpdateCameraPoint: () => void;
   onDeleteCameraPoint: () => void;
   onToggleCleanPreview: () => void;
+  onResetCamera: () => void;
+  onCameraMode: (mode: CameraMode) => void;
   onCameraInput: (detail: PolyViewerKeyDetail) => void;
 }
 
@@ -34,7 +38,8 @@ export class ShortcutManager {
   }
 
   handle(detail: PolyViewerKeyDetail): boolean {
-    if (detail.code === "F6" && detail.eventType === "keydown" && !detail.repeat) {
+    if ((detail.code === "Backquote" || detail.code === "F6")
+      && detail.eventType === "keydown" && !detail.repeat) {
       this.#actions.onToggleEditor();
       return true;
     }
@@ -46,6 +51,12 @@ export class ShortcutManager {
       else if (detail.code === "KeyK" && detail.shiftKey) this.#actions.onUpdateCameraPoint();
       else if (detail.code === "KeyK") this.#actions.onAddCameraPoint();
       else if (detail.code === "F7") this.#actions.onToggleCleanPreview();
+      else if (detail.code === "KeyR") this.#actions.onResetCamera();
+      else if (detail.code === "Digit1") this.#actions.onCameraMode("fixed");
+      else if (detail.code === "Digit2") this.#actions.onCameraMode("lookAt");
+      else if (detail.code === "Digit3") this.#actions.onCameraMode("normal");
+      else if (detail.code === "Digit4") this.#actions.onCameraMode("follow");
+      else if (detail.code === "Digit5") this.#actions.onCameraMode("attached");
       else if (detail.code === "Delete" || detail.code === "Backspace") {
         this.#actions.onDeleteCameraPoint();
       } else {

@@ -19,9 +19,9 @@ let selectedCameraPointId: string | null = null;
 let shell: EditorShell;
 let videoExporter: VideoExporter | null = null;
 const renderPanel = new RenderPanel({
-  onRender: (settings, signal, onProgress) => {
+  onRender: (settings, signal, onProgress, onAudioProgress) => {
     if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
-    return videoExporter.export(settings, { signal, onProgress });
+    return videoExporter.export(settings, { signal, onProgress, onAudioProgress });
   },
 });
 const cleanPreview = new CleanPreviewController(document, (enabled) => shell.setCleanPreview(enabled));
@@ -46,6 +46,7 @@ shell = new EditorShell({
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),
   onOpenRender: () => renderPanel.open(masterTimeline.durationMicroseconds),
+  onResetCamera: () => cameraController?.resetToNormal(),
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -72,6 +73,8 @@ const shortcuts = new ShortcutManager({
     if (selectedCameraPointId) deleteCameraPoint(selectedCameraPointId);
   },
   onToggleCleanPreview: () => cleanPreview.toggle(),
+  onResetCamera: () => cameraController?.resetToNormal(),
+  onCameraMode: (mode) => cameraController?.setMode(mode),
   onCameraInput: (detail) => cameraController?.handleInput(detail),
 });
 cameraPoints.subscribe((points) => {
@@ -118,7 +121,7 @@ void waitForPolyTrackBridge()
       cameraController,
     );
     const frameRenderer = new DeterministicFrameRenderer(bridge.renderer, sceneEvaluator);
-    videoExporter = new VideoExporter(frameRenderer, bridge.canvas);
+    videoExporter = new VideoExporter(frameRenderer, bridge.canvas, bridge.audio, replayBridge);
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
       cameraController?.dispose();

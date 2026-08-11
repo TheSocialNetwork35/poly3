@@ -24,13 +24,26 @@ describe("ShortcutManager", () => {
     manager.dispose();
   });
 
-  it("keeps F6 global but ignores editing shortcuts while inactive", () => {
+  it("keeps the easy physical §/backquote key and F6 global while inactive", () => {
     const actions = createActions();
     const manager = new ShortcutManager(actions);
     manager.handle(key("KeyK"));
-    manager.handle(key("F6"));
+    manager.handle(key("Backquote"));
     expect(actions.onAddCameraPoint).not.toHaveBeenCalled();
     expect(actions.onToggleEditor).toHaveBeenCalledOnce();
+    manager.dispose();
+  });
+
+  it("resets the native camera and selects camera modes with memorable keys", () => {
+    const actions = createActions();
+    const manager = new ShortcutManager(actions);
+    manager.setActive(true);
+    manager.handle(key("KeyR"));
+    manager.handle(key("Digit1"));
+    manager.handle(key("Digit3"));
+    manager.handle(key("Digit5"));
+    expect(actions.onResetCamera).toHaveBeenCalledOnce();
+    expect(actions.onCameraMode.mock.calls).toEqual([["fixed"], ["normal"], ["attached"]]);
     manager.dispose();
   });
 
@@ -60,6 +73,8 @@ function createActions() {
     onUpdateCameraPoint: vi.fn(),
     onDeleteCameraPoint: vi.fn(),
     onToggleCleanPreview: vi.fn(),
+    onResetCamera: vi.fn(),
+    onCameraMode: vi.fn(),
     onCameraInput: vi.fn(),
   };
 }

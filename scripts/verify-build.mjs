@@ -40,6 +40,9 @@ if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvEntry.car
 if (!bundle.includes("polyviewerBeginCapture(e,t)") || !bundle.includes("polyviewerRenderFrame()") || !bundle.includes("polyviewerEndCapture()")) {
   throw new Error("The production bundle does not contain deterministic WebGL capture controls.");
 }
+if (!bundle.includes("window.__POLYVIEWER_AUDIO__=this") || !bundle.includes("get audio(){return window.__POLYVIEWER_AUDIO__??null}")) {
+  throw new Error("The production bundle does not expose PolyTrack's native audio graph for export.");
+}
 if (bundle.split('"/api/polytrack/"+').length - 1 !== 8) {
   throw new Error("The production bundle does not route all eight HTTP API endpoints through Pages.");
 }

@@ -54,7 +54,7 @@ export class FreeCameraController {
   #roll = 0;
   #fov = 50;
   #speed = 18;
-  #mode: CameraMode = "fixed";
+  #mode: CameraMode = "normal";
   #followOffset = { x: 0, y: 0, z: 0 };
   #attachedOffset = { x: 0, y: 0, z: 0 };
   #lookAtOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
@@ -119,6 +119,21 @@ export class FreeCameraController {
     this.#roll = angles.roll;
     this.#mode = mode;
     this.#captureModeOffsets(target, currentPose.position, currentPose.orientation);
+    this.#notify();
+  }
+
+  resetToNormal(): void {
+    this.#mode = "normal";
+    this.#normalPositionOffset = { x: 0, y: 0, z: 0 };
+    this.#normalOrientationOffset = { x: 0, y: 0, z: 0, w: 1 };
+    this.#yaw = 0;
+    this.#pitch = 0;
+    this.#roll = 0;
+    const native = this.#getNativeCameraPose(this.#targetReplayId);
+    if (native) {
+      this.#position = { ...native.position };
+      this.#fov = native.fov;
+    }
     this.#notify();
   }
 
@@ -328,6 +343,9 @@ export class FreeCameraController {
     if (this.#mode === "normal" && native) {
       return evaluateNativeCameraOffset(native, this.#normalPositionOffset, localOrientation);
     }
+    if (this.#mode === "normal") {
+      return { position: { ...this.#position }, orientation: localOrientation };
+    }
     if (!target || this.#mode === "fixed") {
       return { position: { ...this.#position }, orientation: localOrientation };
     }
@@ -410,6 +428,8 @@ export class FreeCameraController {
 
   #onWheel = (event: WheelEvent): void => {
     if (!this.#enabled) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest("input, textarea, select, dialog")) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     this.#speed = Math.max(0.25, Math.min(500, this.#speed * Math.exp(-event.deltaY * 0.001)));

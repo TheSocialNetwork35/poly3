@@ -1,4 +1,5 @@
 import { MasterTimeline } from "../timeline/MasterTimeline";
+import { parseReplayImport } from "./ReplayImport";
 
 const MICROSECONDS_PER_FRAME = 1_000;
 
@@ -61,7 +62,10 @@ export class ReplayBridge {
   }
 
   getCar(id: string): PolyTrackCarTarget | null {
-    return this.#runtimeReplay?.getCar(id) ?? null;
+    const replay = this.#runtimeReplay;
+    if (!replay) return null;
+    if (typeof replay.getCar === "function") return replay.getCar(id);
+    return id === "main" ? replay.primaryCar : null;
   }
 
   get nativeCameraPose(): PolyTrackCameraPose | null {
@@ -69,18 +73,25 @@ export class ReplayBridge {
   }
 
   getNativeCameraPose(id: string): PolyTrackCameraPose | null {
-    return this.#runtimeReplay?.getNativeCameraPose(id) ?? null;
+    const replay = this.#runtimeReplay;
+    if (!replay) return null;
+    if (typeof replay.getNativeCameraPose === "function") return replay.getNativeCameraPose(id);
+    return id === "main" ? replay.nativeCameraPose : null;
   }
 
   get replays(): PolyViewerReplaySummary[] {
-    return this.#runtimeReplay?.listReplays() ?? [];
+    return listRuntimeReplays(this.#runtimeReplay);
   }
 
   addReplay(recordingString: string, name?: string): PolyViewerReplaySummary {
     const replay = this.#runtimeReplay;
     if (!replay) throw new Error("Open a PolyTrack replay before adding another recording.");
+    if (typeof replay.addReplay !== "function") {
+      throw new Error("The PolyTrack runtime was updated incompletely. Reload the page once and try again.");
+    }
+    const payload = parseReplayImport(recordingString);
     this.timeline.pause();
-    const added = replay.addReplay(recordingString, name);
+    const added = replay.addReplay(payload.recording, name, payload);
     this.#notify();
     return added;
   }
@@ -261,7 +272,20 @@ export class ReplayBridge {
       durationMicroseconds: this.timeline.durationMicroseconds,
       loadedMicroseconds: (replay?.loadedFrames ?? 0) * MICROSECONDS_PER_FRAME,
       nativeCameraAvailable: replay?.nativeCameraPose !== null && replay?.nativeCameraPose !== undefined,
-      replays: replay?.listReplays() ?? [],
+      replays: listRuntimeReplays(replay),
     });
   }
+}
+
+function listRuntimeReplays(replay: PolyTrackReplayRuntimeBridge | null): PolyViewerReplaySummary[] {
+  if (!replay) return [];
+  if (typeof replay.listReplays === "function") return replay.listReplays();
+  return replay.primaryCar ? [{
+    id: "main",
+    name: "Main Replay",
+    visible: true,
+    opacity: 1,
+    offsetMilliseconds: 0,
+    removable: false,
+  }] : [];
 }

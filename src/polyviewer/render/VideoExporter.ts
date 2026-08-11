@@ -1,18 +1,24 @@
 import {
+  AudioBufferSource,
   BufferTarget,
   CanvasSource,
   Mp4OutputFormat,
   Output,
   QUALITY_HIGH,
   getFirstEncodableVideoCodec,
+  getFirstEncodableAudioCodec,
+  type AudioCodec,
   type VideoCodec,
 } from "mediabunny";
+import type { ReplayBridge } from "../replay/ReplayBridge";
 import type { FrameRenderSettings } from "./DeterministicFrameRenderer";
 import { DeterministicFrameRenderer } from "./DeterministicFrameRenderer";
+import { captureNativeReplayAudio } from "./NativeAudioCapture";
 
 export interface VideoExportOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
+  onAudioProgress?: (elapsedMicroseconds: number, durationMicroseconds: number) => void;
 }
 
 export interface VideoExportResult {
@@ -20,15 +26,25 @@ export interface VideoExportResult {
   codec: VideoCodec;
   mimeType: string;
   extension: "mp4";
+  hasAudio: boolean;
 }
 
 export class VideoExporter {
   #frameRenderer: DeterministicFrameRenderer;
   #canvas: HTMLCanvasElement;
+  #audio: PolyTrackAudioBridge | null;
+  #replay: ReplayBridge;
 
-  constructor(frameRenderer: DeterministicFrameRenderer, canvas: HTMLCanvasElement) {
+  constructor(
+    frameRenderer: DeterministicFrameRenderer,
+    canvas: HTMLCanvasElement,
+    audio: PolyTrackAudioBridge | null,
+    replay: ReplayBridge,
+  ) {
     this.#frameRenderer = frameRenderer;
     this.#canvas = canvas;
+    this.#audio = audio;
+    this.#replay = replay;
   }
 
   async export(settings: FrameRenderSettings, options: VideoExportOptions = {}): Promise<VideoExportResult> {
@@ -42,6 +58,14 @@ export class VideoExporter {
       throw new Error(`No MP4 video encoder supports ${settings.width}×${settings.height} in this browser.`);
     }
 
+    const durationMicroseconds = settings.endMicroseconds - settings.startMicroseconds;
+    const audioBuffer = settings.startMicroseconds === 0
+      ? await captureNativeReplayAudio(this.#audio, this.#replay, durationMicroseconds, {
+        signal: options.signal,
+        onProgress: options.onAudioProgress,
+      })
+      : null;
+
     const target = new BufferTarget();
     const output = new Output({ format, target });
     const source = new CanvasSource(this.#canvas, {
@@ -52,10 +76,22 @@ export class VideoExporter {
       sizeChangeBehavior: "deny",
     });
     output.addVideoTrack(source, { frameRate: settings.fps });
+    let audioSource: AudioBufferSource | null = null;
+    if (audioBuffer) {
+      const audioCodec = await selectAudioCodec(
+        format,
+        audioBuffer.numberOfChannels,
+        audioBuffer.sampleRate,
+      );
+      if (audioCodec) {
+        audioSource = new AudioBufferSource({ codec: audioCodec, quality: QUALITY_HIGH });
+        output.addAudioTrack(audioSource, { name: "PolyTrack game audio" });
+      }
+    }
     await output.start();
 
     try {
-      await this.#frameRenderer.render(settings, {
+      const videoRender = this.#frameRenderer.render(settings, {
         signal: options.signal,
         captureImage: false,
         onProgress: options.onProgress,
@@ -64,6 +100,7 @@ export class VideoExporter {
           await source.add(timestamp, frame.durationMicroseconds / 1_000_000);
         },
       });
+      await Promise.all([videoRender, audioSource?.add(audioBuffer!) ?? Promise.resolve()]);
       await output.finalize();
     } catch (error) {
       if (output.state === "started") await output.cancel();
@@ -77,8 +114,22 @@ export class VideoExporter {
       codec,
       mimeType,
       extension: "mp4",
+      hasAudio: audioSource !== null,
     };
   }
+}
+
+async function selectAudioCodec(
+  format: Mp4OutputFormat,
+  numberOfChannels: number,
+  sampleRate: number,
+): Promise<AudioCodec | null> {
+  const supported = format.getSupportedAudioCodecs();
+  const preference: AudioCodec[] = ["aac", "opus"];
+  return getFirstEncodableAudioCodec(
+    preference.filter((codec) => supported.includes(codec)),
+    { numberOfChannels, sampleRate, quality: QUALITY_HIGH },
+  );
 }
 
 async function selectCodec(

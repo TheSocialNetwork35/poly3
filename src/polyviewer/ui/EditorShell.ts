@@ -17,6 +17,7 @@ interface EditorShellOptions {
   onRemoveReplay?: (id: string) => void;
   onToggleCleanPreview?: () => void;
   onOpenRender?: () => void;
+  onResetCamera?: () => void;
 }
 
 export class EditorShell {
@@ -35,13 +36,14 @@ export class EditorShell {
   #replays: PolyViewerReplaySummary[] = [];
   #cleanPreviewButton: HTMLButtonElement;
   #renderButton: HTMLButtonElement;
+  #shortcutSheet: HTMLElement;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
     this.element.className = "polyviewer-shell";
     this.element.innerHTML = `
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
-      <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F6</kbd></button>
+      <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>§</kbd></button>
       <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F7</kbd></button>
       <button class="polyviewer-render-button" type="button">Render</button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
@@ -56,6 +58,7 @@ export class EditorShell {
         </div>
         <label class="polyviewer-camera-target">Target <select data-camera-target></select></label>
       </div>
+      <button class="polyviewer-reset-camera" type="button">Reset Camera to Normal <kbd>R</kbd></button>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
       <div class="polyviewer-replays">
         <span class="polyviewer-replay-count">Replays: 0</span>
@@ -71,23 +74,6 @@ export class EditorShell {
           <button type="button" data-point-action="delete">Delete</button>
         </div>
       </section>
-      <details>
-        <summary>Camera controls</summary>
-        <dl>
-          <div><dt>Look</dt><dd>Mouse</dd></div>
-          <div><dt>Move</dt><dd>W A S D</dd></div>
-          <div><dt>Down / up</dt><dd>Q / E</dd></div>
-          <div><dt>Fast / precise</dt><dd>Shift / Alt</dd></div>
-          <div><dt>Roll</dt><dd>Z / C</dd></div>
-          <div><dt>FOV</dt><dd>[ / ]</dd></div>
-          <div><dt>Speed</dt><dd>Mouse wheel</dd></div>
-          <div><dt>Add point</dt><dd>K</dd></div>
-          <div><dt>Update point</dt><dd>Shift + K</dd></div>
-          <div><dt>Delete point</dt><dd>Delete</dd></div>
-          <div><dt>Clean Preview</dt><dd>F7</dd></div>
-          <div><dt>Play / pause</dt><dd>Space</dd></div>
-        </dl>
-      </details>
       <dialog class="polyviewer-replay-dialog">
         <form method="dialog">
           <strong>Add Replay</strong>
@@ -110,8 +96,36 @@ export class EditorShell {
     this.#status = status;
     this.#cleanPreviewButton = cleanPreviewButton;
     this.#renderButton = renderButton;
+    this.#shortcutSheet = document.createElement("aside");
+    this.#shortcutSheet.className = "polyviewer-shortcut-sheet";
+    this.#shortcutSheet.innerHTML = `
+      <details>
+        <summary>Controls & shortcuts</summary>
+        <dl>
+          <div><dt>Open / close</dt><dd>§ / \`</dd></div>
+          <div><dt>Reset Normal camera</dt><dd>R</dd></div>
+          <div><dt>Camera modes</dt><dd>1 2 3 4 5</dd></div>
+          <div><dt>Look</dt><dd>Mouse</dd></div>
+          <div><dt>Move</dt><dd>W A S D</dd></div>
+          <div><dt>Down / up</dt><dd>Q / E</dd></div>
+          <div><dt>Fast / precise</dt><dd>Shift / Alt</dd></div>
+          <div><dt>Roll</dt><dd>Z / C</dd></div>
+          <div><dt>FOV</dt><dd>[ / ]</dd></div>
+          <div><dt>Move speed</dt><dd>Mouse wheel</dd></div>
+          <div><dt>Add point</dt><dd>K</dd></div>
+          <div><dt>Update point</dt><dd>Shift + K</dd></div>
+          <div><dt>Delete point</dt><dd>Delete</dd></div>
+          <div><dt>Play / pause</dt><dd>Space</dd></div>
+          <div><dt>Small / large step</dt><dd>← → / Shift</dd></div>
+          <div><dt>Clean Preview</dt><dd>F7</dd></div>
+        </dl>
+      </details>`;
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
     renderButton.addEventListener("click", () => options.onOpenRender?.());
+    this.element.querySelector(".polyviewer-reset-camera")?.addEventListener(
+      "click",
+      () => options.onResetCamera?.(),
+    );
     this.#modeButtons = Array.from(
       this.element.querySelectorAll<HTMLButtonElement>("[data-camera-mode]"),
     );
@@ -202,6 +216,7 @@ export class EditorShell {
       if (id) options.onRemoveReplay?.(id);
     });
     document.body.append(this.element);
+    document.body.append(this.#shortcutSheet);
   }
 
   setSelectedCameraPoint(point: CameraKeyframe | null): void {
@@ -244,11 +259,12 @@ export class EditorShell {
 
   update(status: FreeCameraStatus): void {
     this.element.classList.toggle("is-active", status.enabled);
+    this.#shortcutSheet.classList.toggle("is-active", status.enabled);
     this.toggleButton.innerHTML = status.enabled
-      ? "Exit PolyViewer <kbd>F6</kbd>"
-      : "Enter PolyViewer <kbd>F6</kbd>";
+      ? "Exit PolyViewer <kbd>§</kbd>"
+      : "Enter PolyViewer <kbd>§</kbd>";
     this.#status.textContent = status.enabled
-      ? `${status.pointerLocked ? "Camera captured" : "Click the scene to capture"} · ${status.speed.toFixed(1)} u/s · ${status.fov.toFixed(0)}° FOV`
+      ? `${status.pointerLocked ? "Camera captured" : "Click the scene to capture"} · Move speed ${status.speed.toFixed(1)} · ${status.fov.toFixed(0)}° FOV`
       : "Connected to the real PolyTrack renderer";
     for (const button of this.#modeButtons) {
       const mode = button.dataset.cameraMode as CameraMode;

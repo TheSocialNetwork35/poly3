@@ -33,7 +33,7 @@ Eight verified HTTP backend call sites are routed to `/api/polytrack/`; two mult
 
 FreeCam uses the real camera. It chains the scene's existing `onBeforeRender` callback and applies its transform immediately before Three.js renders. This prevents normal game camera updates from overwriting the cinematic transform while keeping the original state update and render path intact.
 
-Keyboard input is captured before PolyTrack only while PolyViewer is active (plus the global F6 toggle). The bootstrap bridge rejects editable DOM targets before preventing propagation. `ShortcutManager` then owns all editor mappings and forwards only camera-motion input to the camera controller. This removes the previous competing key listeners in `ReplayBridge` and `FreeCameraController`, prevents K/Delete actions while typing, and suppresses key-repeat duplication for discrete editor actions.
+Keyboard input is captured before PolyTrack only while PolyViewer is active (plus the global physical Backquote/§ toggle and F6 fallback). On editable DOM targets the bootstrap bridge stops propagation to PolyTrack but deliberately does not call `preventDefault`, preserving every normal text-editing key including WASD and Backspace. `ShortcutManager` owns all editor mappings and forwards only camera-motion input to the camera controller.
 
 The camera controller obtains the selected target through the replay adapter and calls the real car's public `getPosition()` and `getQuaternion()` methods. Fixed owns a world transform. Look At preserves that world position and constructs a quaternion whose local negative-Z axis points at the live target, including a robust vertical-target fallback and a stored local orientation/roll offset. Follow stores a world-space positional offset and independent camera quaternion. Attached stores position and orientation in vehicle-local space using quaternion multiplication/inversion. Mode changes first evaluate the current world pose and then derive the new offsets, avoiding visible jumps. Stored legacy `free` states normalize to `fixed` at the keyframe-store boundary and path-evaluation endpoints.
 
@@ -64,7 +64,7 @@ Clean Preview is a reversible presentation state, not DOM destruction. It toggle
 - Stable car scene nodes and material ownership for per-replay opacity.
 - Performance and memory behavior of the native replay lifecycle at 5, 10, and 20 simultaneous imports.
 - Exact reconstruction policy for history-dependent particles across arbitrary long seeks beyond the native reset behavior.
-- Offline audio evaluation and WebCodecs/muxer support for final export.
+The real PolyTrack audio graph is stateful WebAudio driven by its own realtime clock; advancing it during a faster-than-realtime image render would change sound speed and pitch. Export therefore performs a separate 1.0× native audio pass through a `MediaStreamAudioDestinationNode`, decodes that capture, trims/pads it to the exact rational video duration, and uses WebCodecs/Mediabunny to encode and mux it with the deterministic frame sequence. If the browser lacks audio capture/encoding capability, export remains honestly video-only and reports that result.
 
 ## Verified external limitation
 

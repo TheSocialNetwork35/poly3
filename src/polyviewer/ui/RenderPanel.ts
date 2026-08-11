@@ -6,6 +6,7 @@ interface RenderPanelOptions {
     settings: FrameRenderSettings,
     signal: AbortSignal,
     onProgress: (completed: number, total: number) => void,
+    onAudioProgress: (elapsedMicroseconds: number, durationMicroseconds: number) => void,
   ) => Promise<VideoExportResult>;
 }
 
@@ -94,9 +95,13 @@ export class RenderPanel {
         fps,
         startMicroseconds: 0,
         endMicroseconds: this.#durationMicroseconds,
-      }, this.#controller.signal, (completed, total) => this.#progress(completed, total));
+      }, this.#controller.signal,
+      (completed, total) => this.#progress(completed, total),
+      (elapsed, duration) => {
+        this.#status.textContent = `Recording real PolyTrack sound at 1.0× · ${Math.round(elapsed / 1_000_000)} / ${Math.round(duration / 1_000_000)}s`;
+      });
       downloadVideo(result);
-      this.#status.textContent = `Video ready · ${result.codec.toUpperCase()} MP4`;
+      this.#status.textContent = `Video ready · ${result.codec.toUpperCase()} MP4 · ${result.hasAudio ? "with PolyTrack sound" : "video only (audio unavailable)"}`;
     } catch (error) {
       this.#status.textContent = error instanceof DOMException && error.name === "AbortError"
         ? "Rendering cancelled."

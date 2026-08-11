@@ -16,12 +16,12 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Follow and Attached use the real replay car's position/quaternion and remain disabled until a real replay target exists.
 - **Add Camera Point** captures a stable, complete camera state at the exact integer-microsecond playhead time and adds a marker to the timeline.
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
-- **Add Replay** accepts a real PolyTrack recording string and passes it to the native 0.6.2 recording deserializer. Imported runs receive a real `Car`, replay-state buffer, and worker simulation and join the original replay update loop.
+- **Add Replay** accepts either a bare PolyTrack recording string or copied JSON with `recording`, `carStyle`, `frames`, and `verifiedState`. Recording and car style still pass through PolyTrack's native 0.6.2 deserializers.
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
 - **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
 - Preview and future export now share one `SceneEvaluator` for Camera Point evaluation. Its exact-frame path can synchronously advance the native replay in one-millisecond steps through real `Car.setCarState`, `Car.update`, and native camera updates.
 - The deterministic frame renderer uses rational integer timestamps, pre-rolls visual history, temporarily configures the real PolyTrack WebGL renderer at the requested output size, captures frames sequentially, supports cancellation/progress, and restores editor time/playback plus renderer size/aspect in `finally`.
-- **Render** offers 1080p, 1440p, or 4K at 30/60 FPS. WebCodecs encodes the exact canvas frames in quality mode and Mediabunny muxes them into a downloadable MP4 with real timestamps, progress, cancellation, codec capability detection, and no screen recording.
+- **Render** offers 1080p, 1440p, or 4K at 30/60 FPS. WebCodecs encodes exact canvas frames and Mediabunny muxes a downloadable MP4. A separate 1.0× pass records PolyTrack's real WebAudio graph so engine, tire, collision, skid, and music audio keep real-time pitch and duration while video remains offline/deterministic.
 
 The 5/10/20-car performance qualification and project save/load are not yet presented as finished features. Video export is available only when the current browser exposes a compatible WebCodecs encoder; unsupported browsers receive an explicit error instead of a fake realtime fallback.
 
@@ -43,7 +43,9 @@ The Cloudflare Pages build command is `npm run build`; the output directory is `
 
 ## Camera controls
 
-- `F6`: enter or exit PolyViewer
+- `§ / Backquote`: enter or exit PolyViewer (`F6` remains as a fallback)
+- `R`: reset position/offsets and return to the native Normal camera
+- `1 / 2 / 3 / 4 / 5`: Fixed / Look At / Normal / Follow / Attached
 - `F7`: toggle Clean Preview while PolyViewer is active
 - Mouse: look
 - `W A S D`: move
@@ -67,11 +69,11 @@ When pointer lock is released, click the game canvas to capture the mouse again.
 - Timeline slider: seek or scrub through worker-produced replay frames
 - `↺`: pause and return to the start
 
-One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing; the replay and camera components no longer register competing keyboard listeners. Shortcuts are ignored while typing in an input, textarea, select, or contenteditable element.
+One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing. Editable controls stop propagation to PolyTrack without cancelling browser text editing, so WASD, Backspace, punctuation, and international keyboard characters remain typeable. The complete expandable shortcut sheet lives at the right edge of the viewer.
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
 
-The **Add Replay** control is enabled only in that real Watch context. Invalid strings are rejected by PolyTrack's own parser and surfaced in the dialog; PolyViewer does not provide a fallback or synthetic recording format. A newly imported replay is simulated to the shared master duration, and the common loaded-frame boundary waits for every active replay.
+The **Add Replay** control is enabled only in that real Watch context. Invalid strings are rejected by PolyTrack's own parser and surfaced in the dialog; PolyViewer does not provide a fallback or synthetic recording format. Copied structured run JSON preserves its real car style and declared frame duration. A newly imported replay is simulated to the shared master duration, and the common loaded-frame boundary waits for every active replay.
 
 ## Camera modes
 

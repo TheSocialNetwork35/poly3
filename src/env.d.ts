@@ -12,8 +12,14 @@ declare global {
     readonly scene: PolyTrackScene;
     readonly camera: PolyTrackCamera;
     readonly canvas: HTMLCanvasElement;
+    readonly audio: PolyTrackAudioBridge | null;
     readonly state: object;
     replay: PolyTrackReplayRuntimeBridge | null;
+  }
+
+  interface PolyTrackAudioBridge {
+    readonly context: AudioContext | null;
+    readonly destinationMaster: AudioNode | null;
   }
 
   interface PolyTrackReplayDriveResult {
@@ -34,10 +40,10 @@ declare global {
     readonly loadedFrames: number;
     readonly timeFrames: number;
     readonly primaryCar: PolyTrackCarTarget | null;
-    listReplays(): PolyViewerReplaySummary[];
-    getCar(id: string): PolyTrackCarTarget | null;
-    getNativeCameraPose(id: string): PolyTrackCameraPose | null;
-    addReplay(recordingString: string, name?: string): PolyViewerReplaySummary;
+    listReplays?(): PolyViewerReplaySummary[];
+    getCar?(id: string): PolyTrackCarTarget | null;
+    getNativeCameraPose?(id: string): PolyTrackCameraPose | null;
+    addReplay?(recordingString: string, name?: string, metadata?: PolyViewerReplayImportMetadata): PolyViewerReplaySummary;
     setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
     setReplayOpacity(id: string, opacity: number): void;
@@ -48,6 +54,12 @@ declare global {
     setNativePaused(paused: boolean): void;
     seekFrame(frame: number): void;
     evaluateFrame(frame: number, advanceVisuals: boolean): void;
+  }
+
+  interface PolyViewerReplayImportMetadata {
+    carStyle?: string;
+    frames?: number;
+    verifiedState?: number;
   }
 
   interface PolyViewerReplaySummary {
