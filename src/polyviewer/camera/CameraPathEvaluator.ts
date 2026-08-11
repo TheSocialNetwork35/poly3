@@ -43,6 +43,16 @@ export function evaluateCameraPath(
       end.state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 },
       amount,
     ),
+    normalPositionOffset: lerpVector(
+      start.state.normalPositionOffset ?? { x: 0, y: 0, z: 0 },
+      end.state.normalPositionOffset ?? { x: 0, y: 0, z: 0 },
+      amount,
+    ),
+    normalOrientationOffset: slerpQuaternions(
+      start.state.normalOrientationOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+      end.state.normalOrientationOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+      amount,
+    ),
   };
 }
 
@@ -50,6 +60,8 @@ function normalizeState(state: CinematicCameraState): CinematicCameraState {
   const result = structuredClone(state);
   result.mode = normalizeCameraMode(result.mode);
   result.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  result.normalPositionOffset ??= { x: 0, y: 0, z: 0 };
+  result.normalOrientationOffset ??= { x: 0, y: 0, z: 0, w: 1 };
   return result;
 }
 

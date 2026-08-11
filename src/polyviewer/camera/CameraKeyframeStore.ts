@@ -87,6 +87,8 @@ export function migrateCameraState(state: CinematicCameraState): CinematicCamera
   const migrated = structuredClone(state);
   migrated.mode = normalizeCameraMode(migrated.mode);
   migrated.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  migrated.normalPositionOffset ??= { x: 0, y: 0, z: 0 };
+  migrated.normalOrientationOffset ??= { x: 0, y: 0, z: 0, w: 1 };
   return migrated;
 }
 

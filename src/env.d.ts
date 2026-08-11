@@ -34,9 +34,16 @@ declare global {
     readonly loadedFrames: number;
     readonly timeFrames: number;
     readonly primaryCar: PolyTrackCarTarget | null;
+    nativeCameraPose: PolyTrackCameraPose | null;
     setDriver(driver: PolyTrackReplayDriver | null): void;
     setNativePaused(paused: boolean): void;
     seekFrame(frame: number): void;
+  }
+
+  interface PolyTrackCameraPose {
+    position: { x: number; y: number; z: number };
+    quaternion: { x: number; y: number; z: number; w: number };
+    fov: number;
   }
 
   interface PolyTrackCarTarget {

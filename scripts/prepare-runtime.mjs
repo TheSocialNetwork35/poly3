@@ -16,15 +16,19 @@ const bridge =
 const replayClassAnchor = "const cg=class{constructor(e,t,n,i,r,a,s,o,l,c,h,d,u){";
 const replayDisposeAnchor = '}dispose(){(0,R.gn)(this,Lp,"f").clear(),(0,R.gn)(this,Dp,"f").clearMountains();';
 const replayUpdateAnchor = 'update(e){(0,R.GG)(this,Kp,(0,R.gn)(this,Yp,"f").isPaused,"f");';
+const nativeCameraUpdateAnchor = 'for(const e of(0,R.gn)(this,jp,"f"))e.car.update(i),e.car.updateCameras(i);';
 
 const replayConstructorBridge =
-  ';const pvOwner=this,pvReplay={owner:pvOwner,driver:null,get durationFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,Qp,"f"))},get loadedFrames(){let e=1/0;for(const t of(0,R.gn)(pvOwner,jp,"f"))e=Math.min(e,t.replay.getLastFrame().numberOfFrames);return e===1/0?0:e},get timeFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,qp,"f"))},get primaryCar(){return(0,R.gn)(pvOwner,jp,"f")[(0,R.gn)(pvOwner,Hp,"f")]?.car??null},setDriver(e){this.driver=e},setNativePaused(e){const t=!!e;(0,R.GG)(pvOwner,Kp,t,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=t},seekFrame(e){if(!Number.isSafeInteger(e)||e<0)throw new RangeError("Replay frame must be a non-negative safe integer.");const t=Math.max(0,Math.min(this.durationFrames,this.loadedFrames,e));(0,R.GG)(pvOwner,qp,t/1e3,"f"),(0,R.GG)(pvOwner,Kp,!0,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=!0}};window.__POLYTRACK_062__.replay=pvReplay;window.dispatchEvent(new CustomEvent("polytrack:replay-ready"))';
+  ';const pvOwner=this,pvReplay={owner:pvOwner,driver:null,nativeCameraPose:null,get durationFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,Qp,"f"))},get loadedFrames(){let e=1/0;for(const t of(0,R.gn)(pvOwner,jp,"f"))e=Math.min(e,t.replay.getLastFrame().numberOfFrames);return e===1/0?0:e},get timeFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,qp,"f"))},get primaryCar(){return(0,R.gn)(pvOwner,jp,"f")[(0,R.gn)(pvOwner,Hp,"f")]?.car??null},setDriver(e){this.driver=e},setNativePaused(e){const t=!!e;(0,R.GG)(pvOwner,Kp,t,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=t},seekFrame(e){if(!Number.isSafeInteger(e)||e<0)throw new RangeError("Replay frame must be a non-negative safe integer.");const t=Math.max(0,Math.min(this.durationFrames,this.loadedFrames,e));(0,R.GG)(pvOwner,qp,t/1e3,"f"),(0,R.GG)(pvOwner,Kp,!0,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=!0}};window.__POLYTRACK_062__.replay=pvReplay;window.dispatchEvent(new CustomEvent("polytrack:replay-ready"))';
 
 const replayDisposeBridge =
   'const pvRuntime=window.__POLYTRACK_062__;pvRuntime?.replay?.owner===this&&(pvRuntime.replay.driver=null,pvRuntime.replay=null,window.dispatchEvent(new CustomEvent("polytrack:replay-disposed")));';
 
 const replayUpdateBridge =
   'const pvReplay=window.__POLYTRACK_062__?.replay;if(pvReplay?.owner===this&&"function"==typeof pvReplay.driver){const pvDrive=pvReplay.driver(e,pvReplay.durationFrames,pvReplay.loadedFrames),pvAdvance=!!pvDrive?.advanceVisuals,pvFrame=pvDrive?.frame;Number.isSafeInteger(pvFrame)&&((0,R.GG)(this,qp,Math.max(0,Math.min(pvReplay.durationFrames,pvReplay.loadedFrames,pvFrame))/1e3-(pvAdvance?e:0),"f"),(0,R.GG)(this,Kp,!pvAdvance,"f"),(0,R.gn)(this,Yp,"f").isPaused=!pvAdvance)}';
+
+const nativeCameraUpdateBridge =
+  'const pvNativeCamera=s.car.cameraOrbit,pvNativeReplay=window.__POLYTRACK_062__?.replay;pvNativeReplay?.owner===this&&(pvNativeReplay.nativeCameraPose={position:{x:pvNativeCamera.position.x,y:pvNativeCamera.position.y,z:pvNativeCamera.position.z},quaternion:{x:pvNativeCamera.quaternion.x,y:pvNativeCamera.quaternion.y,z:pvNativeCamera.quaternion.z,w:pvNativeCamera.quaternion.w},fov:pvNativeCamera.fov});';
 
 const upstreamApiBase = '"https://vps.kodub.com/"+';
 const localApiBase = '"/api/polytrack/"+';
@@ -56,9 +60,10 @@ let bridgedBundle = originalBundle.replace(animationLoopAnchor, bridge);
 const replayClassOccurrences = originalBundle.split(replayClassAnchor).length - 1;
 const replayDisposeOccurrences = originalBundle.split(replayDisposeAnchor).length - 1;
 const replayUpdateOccurrences = originalBundle.split(replayUpdateAnchor).length - 1;
-if (replayClassOccurrences !== 1 || replayDisposeOccurrences !== 1 || replayUpdateOccurrences !== 1) {
+const nativeCameraUpdateOccurrences = originalBundle.split(nativeCameraUpdateAnchor).length - 1;
+if (replayClassOccurrences !== 1 || replayDisposeOccurrences !== 1 || replayUpdateOccurrences !== 1 || nativeCameraUpdateOccurrences !== 1) {
   throw new Error(
-    `Refusing to patch PolyTrack replay state: expected one class/dispose/update anchor, found ${replayClassOccurrences}/${replayDisposeOccurrences}/${replayUpdateOccurrences}.`,
+    `Refusing to patch PolyTrack replay state: expected one class/dispose/update/native-camera anchor, found ${replayClassOccurrences}/${replayDisposeOccurrences}/${replayUpdateOccurrences}/${nativeCameraUpdateOccurrences}.`,
   );
 }
 
@@ -70,6 +75,7 @@ if (replayClassIndex < 0 || replayDisposeIndex < 0) {
 bridgedBundle = insertAt(bridgedBundle, replayDisposeIndex, replayConstructorBridge);
 bridgedBundle = bridgedBundle.replace(replayDisposeAnchor, `${replayDisposeAnchor}${replayDisposeBridge}`);
 bridgedBundle = bridgedBundle.replace(replayUpdateAnchor, `${replayUpdateAnchor}${replayUpdateBridge}`);
+bridgedBundle = bridgedBundle.replace(nativeCameraUpdateAnchor, `${nativeCameraUpdateAnchor}${nativeCameraUpdateBridge}`);
 
 const proxiedBundle = bridgedBundle
   .replaceAll(upstreamApiBase, localApiBase)

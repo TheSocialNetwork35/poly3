@@ -31,6 +31,7 @@ export class EditorShell {
         <div>
           <button type="button" data-camera-mode="fixed">Fixed</button>
           <button type="button" data-camera-mode="lookAt">Look At</button>
+          <button type="button" data-camera-mode="normal">Normal</button>
           <button type="button" data-camera-mode="follow">Follow</button>
           <button type="button" data-camera-mode="attached">Attached</button>
         </div>
@@ -121,8 +122,10 @@ export class EditorShell {
     for (const button of this.#modeButtons) {
       const mode = button.dataset.cameraMode as CameraMode;
       button.classList.toggle("is-selected", mode === status.mode);
-      button.disabled = (mode === "lookAt" || mode === "follow" || mode === "attached")
-        && !status.targetAvailable;
+      button.disabled = mode === "normal"
+        ? !status.nativeCameraAvailable
+        : (mode === "lookAt" || mode === "follow" || mode === "attached")
+          && !status.targetAvailable;
     }
     const target = this.element.querySelector<HTMLElement>(".polyviewer-camera-target");
     if (target) target.textContent = status.targetAvailable

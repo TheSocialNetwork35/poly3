@@ -68,10 +68,11 @@ PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay pre
 
 - **Fixed:** independent six-axis world camera that stays where the creator places it
 - **Look At:** keeps its world-space position while continuously aiming at the selected real replay car
+- **Normal:** the real PolyTrack `cameraOrbit` replay camera with local cinematic position/orientation offsets and PolyViewer FOV
 - **Follow:** follows the main replay's position while keeping an independent world orientation
 - **Attached:** stores camera position and rotation in the replay car's local space for cockpit, wheel, bumper, roof, and other mounted shots
 
-Changing modes preserves the visible camera pose. Look At derives a robust quaternion from the real target position every frame and supports a local intentional orientation/roll offset. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping. Legacy `free` Camera Point data migrates to `fixed` when loaded into the store. The real native **Normal** replay-camera integration is the next stage and is not approximated here.
+Changing modes preserves the visible camera pose. Look At derives a robust quaternion from the real target position every frame and supports a local intentional orientation/roll offset. Normal does not approximate a chase camera: PolyTrack continues updating its original orbit camera, including its own delayed/smoothed rotation, and PolyViewer composes keyframed offsets on the captured native pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping. Legacy `free` Camera Point data migrates to `fixed` when loaded into the store.
 
 Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Clicking a marker pauses and seeks to its exact time, applies its camera state, and opens the editor. Dragging uses a four-pixel threshold, clamps to replay duration, and preserves the stable point ID.
 

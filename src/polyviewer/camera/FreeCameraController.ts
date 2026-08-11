@@ -13,6 +13,7 @@ import type { PolyViewerKeyDetail } from "../input/ShortcutManager";
 interface FreeCameraOptions {
   onChange?: (state: FreeCameraStatus) => void;
   getTarget?: () => PolyTrackCarTarget | null;
+  getNativeCameraPose?: () => PolyTrackCameraPose | null;
 }
 
 export interface FreeCameraStatus {
@@ -22,9 +23,10 @@ export interface FreeCameraStatus {
   fov: number;
   mode: CameraMode;
   targetAvailable: boolean;
+  nativeCameraAvailable: boolean;
 }
 
-export type CameraMode = "fixed" | "lookAt" | "follow" | "attached";
+export type CameraMode = "fixed" | "lookAt" | "normal" | "follow" | "attached";
 export type StoredCameraMode = CameraMode | "free";
 
 export interface CinematicCameraState {
@@ -37,6 +39,8 @@ export interface CinematicCameraState {
   attachedOffset: VectorValue;
   attachedOrientation: QuaternionValue;
   lookAtOffset?: QuaternionValue;
+  normalPositionOffset?: VectorValue;
+  normalOrientationOffset?: QuaternionValue;
 }
 
 export class FreeCameraController {
@@ -53,7 +57,10 @@ export class FreeCameraController {
   #followOffset = { x: 0, y: 0, z: 0 };
   #attachedOffset = { x: 0, y: 0, z: 0 };
   #lookAtOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
+  #normalPositionOffset = { x: 0, y: 0, z: 0 };
+  #normalOrientationOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
   #getTarget: () => PolyTrackCarTarget | null;
+  #getNativeCameraPose: () => PolyTrackCameraPose | null;
   #lastFrame = performance.now();
   #frameRequest = 0;
   #scene: PolyTrackScene | null = null;
@@ -64,6 +71,7 @@ export class FreeCameraController {
     this.#bridge = bridge;
     this.#onChange = options.onChange;
     this.#getTarget = options.getTarget ?? (() => null);
+    this.#getNativeCameraPose = options.getNativeCameraPose ?? (() => null);
     window.addEventListener("mousemove", this.#onMouseMove, true);
     window.addEventListener("wheel", this.#onWheel, { capture: true, passive: false });
     document.addEventListener("pointerlockchange", this.#notify);
@@ -125,6 +133,8 @@ export class FreeCameraController {
           ? multiplyQuaternions(invertQuaternion(target.orientation), pose.orientation)
           : { ...localOrientation },
       lookAtOffset: { ...this.#lookAtOffset },
+      normalPositionOffset: { ...this.#normalPositionOffset },
+      normalOrientationOffset: { ...this.#normalOrientationOffset },
     };
   }
 
@@ -135,8 +145,13 @@ export class FreeCameraController {
     this.#followOffset = { ...state.followOffset };
     this.#attachedOffset = { ...state.attachedOffset };
     this.#lookAtOffset = state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 };
+    this.#normalPositionOffset = state.normalPositionOffset ?? { x: 0, y: 0, z: 0 };
+    this.#normalOrientationOffset = state.normalOrientationOffset
+      ?? { x: 0, y: 0, z: 0, w: 1 };
     const orientation = this.#mode === "attached"
       ? state.attachedOrientation
+      : this.#mode === "normal"
+        ? this.#normalOrientationOffset
       : this.#mode === "lookAt"
         ? this.#lookAtOffset
         : state.orientation;
@@ -297,6 +312,10 @@ export class FreeCameraController {
 
   #evaluatePose(target: CameraTargetPose | null): CameraPose {
     const localOrientation = quaternionFromYawPitchRoll(this.#yaw, this.#pitch, this.#roll);
+    const native = this.#readNativeCameraPose();
+    if (this.#mode === "normal" && native) {
+      return evaluateNativeCameraOffset(native, this.#normalPositionOffset, localOrientation);
+    }
     if (!target || this.#mode === "fixed") {
       return { position: { ...this.#position }, orientation: localOrientation };
     }
@@ -326,6 +345,20 @@ export class FreeCameraController {
     worldPosition: VectorValue,
     worldOrientation: QuaternionValue,
   ): void {
+    if (this.#mode === "normal") {
+      const native = this.#readNativeCameraPose();
+      if (native) {
+        const worldOffset = subtractVectors(worldPosition, native.position);
+        this.#normalPositionOffset = rotateVector(worldOffset, invertQuaternion(native.orientation));
+        const offset = multiplyQuaternions(invertQuaternion(native.orientation), worldOrientation);
+        this.#normalOrientationOffset = offset;
+        const angles = yawPitchRollFromQuaternion(offset);
+        this.#yaw = angles.yaw;
+        this.#pitch = angles.pitch;
+        this.#roll = angles.roll;
+      }
+      return;
+    }
     if (!target) return;
     this.#capturePositionOffset(target, worldPosition);
     if (this.#mode === "lookAt") {
@@ -347,6 +380,16 @@ export class FreeCameraController {
   }
 
   #capturePositionOffset(target: CameraTargetPose | null, worldPosition: VectorValue): void {
+    if (this.#mode === "normal") {
+      const native = this.#readNativeCameraPose();
+      if (native) {
+        this.#normalPositionOffset = rotateVector(
+          subtractVectors(worldPosition, native.position),
+          invertQuaternion(native.orientation),
+        );
+      }
+      return;
+    }
     if (!target) return;
     const worldOffset = subtractVectors(worldPosition, target.position);
     this.#followOffset = worldOffset;
@@ -383,8 +426,18 @@ export class FreeCameraController {
       fov: this.#fov,
       mode: this.#mode,
       targetAvailable: this.#getTarget() !== null,
+      nativeCameraAvailable: this.#getNativeCameraPose() !== null,
     });
   };
+
+  #readNativeCameraPose(): CameraPose | null {
+    const pose = this.#getNativeCameraPose();
+    if (!pose) return null;
+    return {
+      position: { ...pose.position },
+      orientation: { ...pose.quaternion },
+    };
+  }
 }
 
 export function normalizeCameraMode(mode: StoredCameraMode): CameraMode {
@@ -397,6 +450,17 @@ interface CameraTargetPose {
 }
 
 interface CameraPose extends CameraTargetPose {}
+
+export function evaluateNativeCameraOffset(
+  native: CameraPose,
+  positionOffset: VectorValue,
+  orientationOffset: QuaternionValue,
+): CameraPose {
+  return {
+    position: addVectors(native.position, rotateVector(positionOffset, native.orientation)),
+    orientation: multiplyQuaternions(native.orientation, orientationOffset),
+  };
+}
 
 function addVectors(a: VectorValue, b: VectorValue): VectorValue {
   return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };

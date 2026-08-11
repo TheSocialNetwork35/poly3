@@ -26,6 +26,7 @@ const shell = new EditorShell({
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
 let replayDurationMicroseconds = 0;
+let nativeCameraWasAvailable = false;
 const replayTimeline = new ReplayTimeline({
   onTogglePlayback: () => replayBridge?.togglePlayback(),
   onRestart: () => replayBridge?.restart(),
@@ -69,11 +70,16 @@ void waitForPolyTrackBridge()
           replayDurationMicroseconds = status.durationMicroseconds;
         }
         if (status.connected !== replayWasConnected) cameraController?.refreshStatus();
+        if (status.nativeCameraAvailable !== nativeCameraWasAvailable) {
+          cameraController?.refreshStatus();
+          nativeCameraWasAvailable = status.nativeCameraAvailable;
+        }
         replayWasConnected = status.connected;
       },
     });
     cameraController = new FreeCameraController(bridge, {
       getTarget: () => replayBridge?.primaryCar ?? null,
+      getNativeCameraPose: () => replayBridge?.nativeCameraPose ?? null,
       onChange: (status) => {
         shell.update(status);
         replayBridge?.setActive(status.enabled);

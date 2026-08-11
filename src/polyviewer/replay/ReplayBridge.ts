@@ -13,6 +13,7 @@ export interface ReplayBridgeStatus {
   timeMicroseconds: number;
   durationMicroseconds: number;
   loadedMicroseconds: number;
+  nativeCameraAvailable: boolean;
 }
 
 /**
@@ -51,6 +52,10 @@ export class ReplayBridge {
 
   get primaryCar(): PolyTrackCarTarget | null {
     return this.#runtimeReplay?.primaryCar ?? null;
+  }
+
+  get nativeCameraPose(): PolyTrackCameraPose | null {
+    return this.#runtimeReplay?.nativeCameraPose ?? null;
   }
 
   setActive(active: boolean): void {
@@ -175,6 +180,7 @@ export class ReplayBridge {
       timeMicroseconds: this.timeline.timeMicroseconds,
       durationMicroseconds: this.timeline.durationMicroseconds,
       loadedMicroseconds: (replay?.loadedFrames ?? 0) * MICROSECONDS_PER_FRAME,
+      nativeCameraAvailable: replay?.nativeCameraPose !== null && replay?.nativeCameraPose !== undefined,
     });
   }
 }
