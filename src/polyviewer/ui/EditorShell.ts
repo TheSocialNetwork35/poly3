@@ -14,7 +14,7 @@ interface EditorShellOptions {
   onReplayNameChange?: (id: string, name: string) => void;
   onReplayVisibilityChange?: (id: string, visible: boolean) => void;
   onReplayOpacityChange?: (id: string, opacity: number) => void;
-  onReplayOffsetChange?: (id: string, offsetMilliseconds: number) => void;
+  onReplayNameTagVisibilityChange?: (id: string, visible: boolean) => void;
   onRemoveReplay?: (id: string) => void;
   onToggleCleanPreview?: () => void;
   onOpenRender?: () => void;
@@ -34,6 +34,7 @@ export class EditorShell {
   #replayDialog: HTMLDialogElement;
   #targetSelect: HTMLSelectElement;
   #replayList: HTMLElement;
+  #replaySearch: HTMLInputElement;
   #replays: PolyViewerReplaySummary[] = [];
   #cleanPreviewButton: HTMLButtonElement;
   #renderButton: HTMLButtonElement;
@@ -45,7 +46,7 @@ export class EditorShell {
     this.element.innerHTML = `
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
       <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F1</kbd></button>
-      <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F7</kbd></button>
+      <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F8</kbd></button>
       <button class="polyviewer-render-button" type="button">Render</button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
       <div class="polyviewer-camera-modes" aria-label="Camera mode">
@@ -65,6 +66,7 @@ export class EditorShell {
         <span class="polyviewer-replay-count">Replays: 0</span>
         <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
       </div>
+      <label class="polyviewer-replay-search">Find run <input type="search" placeholder="Name…" autocomplete="off"></label>
       <section class="polyviewer-replay-list" aria-label="Replays"></section>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
@@ -119,7 +121,8 @@ export class EditorShell {
           <div><dt>Delete point</dt><dd>Delete</dd></div>
           <div><dt>Play / pause</dt><dd>Space</dd></div>
           <div><dt>Small / large step</dt><dd>← → / Shift</dd></div>
-          <div><dt>Clean Preview</dt><dd>F7</dd></div>
+          <div><dt>Restart timeline</dt><dd>↓</dd></div>
+          <div><dt>Clean Preview</dt><dd>F8</dd></div>
         </dl>
       </details>`;
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
@@ -141,7 +144,8 @@ export class EditorShell {
     const replayDialog = this.element.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
     const targetSelect = this.element.querySelector<HTMLSelectElement>("[data-camera-target]");
     const replayList = this.element.querySelector<HTMLElement>(".polyviewer-replay-list");
-    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList) {
+    const replaySearch = this.element.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
+    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch) {
       throw new Error("Failed to construct replay import controls.");
     }
     this.#addReplayButton = addReplayButton;
@@ -149,6 +153,8 @@ export class EditorShell {
     this.#replayDialog = replayDialog;
     this.#targetSelect = targetSelect;
     this.#replayList = replayList;
+    this.#replaySearch = replaySearch;
+    replaySearch.addEventListener("input", () => this.#renderReplayRows());
     for (const button of this.#modeButtons) {
       button.addEventListener("click", () => {
         const mode = button.dataset.cameraMode as CameraMode | undefined;
@@ -215,7 +221,9 @@ export class EditorShell {
       if (input.matches("[data-replay-name]")) options.onReplayNameChange?.(id, input.value);
       if (input.matches("[data-replay-visible]")) options.onReplayVisibilityChange?.(id, input.checked);
       if (input.matches("[data-replay-opacity]")) options.onReplayOpacityChange?.(id, Number(input.value) / 100);
-      if (input.matches("[data-replay-offset]")) options.onReplayOffsetChange?.(id, Math.round(Number(input.value) * 1_000));
+      if (input.matches("[data-replay-name-tag]")) {
+        options.onReplayNameTagVisibilityChange?.(id, input.checked);
+      }
     });
     replayList.addEventListener("click", (event) => {
       const button = (event.target as Element).closest<HTMLButtonElement>("[data-replay-remove]");
@@ -260,8 +268,7 @@ export class EditorShell {
     if (nextTarget !== selectedTarget && nextTarget) {
       this.#targetSelect.dispatchEvent(new Event("change"));
     }
-    this.#replayList.replaceChildren(...replays.map((replay) => createReplayRow(replay)));
-    this.#replayList.classList.toggle("is-visible", replays.length > 0);
+    this.#renderReplayRows();
   }
 
   update(status: FreeCameraStatus): void {
@@ -292,6 +299,18 @@ export class EditorShell {
     this.#status.textContent = message;
     this.toggleButton.disabled = true;
   }
+
+  #renderReplayRows(): void {
+    const query = this.#replaySearch.value.trim().toLocaleLowerCase();
+    const visible = query
+      ? this.#replays.filter((replay) => replay.name.toLocaleLowerCase().includes(query))
+      : this.#replays;
+    this.#replayCount.textContent = query
+      ? `Replays: ${this.#replays.length} · ${visible.length} shown`
+      : `Replays: ${this.#replays.length}`;
+    this.#replayList.replaceChildren(...visible.map((replay) => createReplayRow(replay)));
+    this.#replayList.classList.toggle("is-visible", this.#replays.length > 0);
+  }
 }
 
 function createReplayRow(replay: PolyViewerReplaySummary): HTMLElement {
@@ -301,14 +320,14 @@ function createReplayRow(replay: PolyViewerReplaySummary): HTMLElement {
     <input data-replay-name aria-label="Replay name" maxlength="60">
     <label title="Visible"><input data-replay-visible type="checkbox"> 👁</label>
     <label class="polyviewer-opacity"><input data-replay-opacity type="range" min="0" max="100" step="1"><span></span></label>
-    <label class="polyviewer-offset">Offset <input data-replay-offset type="number" min="0" step="0.001">s</label>
+    <label class="polyviewer-name-tag"><input data-replay-name-tag type="checkbox"> Name label</label>
     ${replay.removable ? '<button data-replay-remove type="button" title="Remove replay">Remove</button>' : ""}
   `;
   const name = row.querySelector<HTMLInputElement>("[data-replay-name]");
   const visible = row.querySelector<HTMLInputElement>("[data-replay-visible]");
   const opacity = row.querySelector<HTMLInputElement>("[data-replay-opacity]");
   const percentage = row.querySelector<HTMLElement>(".polyviewer-opacity span");
-  const offset = row.querySelector<HTMLInputElement>("[data-replay-offset]");
+  const nameTag = row.querySelector<HTMLInputElement>("[data-replay-name-tag]");
   if (name) name.value = replay.name;
   if (visible) visible.checked = replay.visible;
   if (opacity) {
@@ -316,7 +335,7 @@ function createReplayRow(replay: PolyViewerReplaySummary): HTMLElement {
     opacity.addEventListener("input", () => { if (percentage) percentage.textContent = `${opacity.value}%`; });
   }
   if (percentage) percentage.textContent = `${Math.round(replay.opacity * 100)}%`;
-  if (offset) offset.value = (replay.offsetMilliseconds / 1_000).toFixed(3);
+  if (nameTag) nameTag.checked = replay.nameTagVisible;
   return row;
 }
 

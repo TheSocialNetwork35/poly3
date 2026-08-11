@@ -255,6 +255,25 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   font: 11px/1 system-ui, sans-serif;
 }
 .polyviewer-shell.is-active .polyviewer-replays { display: flex; }
+.polyviewer-replay-search {
+  display: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  color: rgb(255 255 255 / 52%);
+  font: 10px/1 system-ui, sans-serif;
+}
+.polyviewer-shell.is-active .polyviewer-replay-search { display: grid; }
+.polyviewer-replay-search input {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 4px;
+  color: white;
+  background: rgb(0 0 0 / 20%);
+  font: 11px/1 system-ui, sans-serif;
+}
 .polyviewer-add-replay {
   padding: 7px 9px;
   border: 1px solid rgb(255 255 255 / 15%);
@@ -294,8 +313,8 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 .polyviewer-opacity { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 34px; align-items: center; gap: 7px; }
 .polyviewer-opacity input { width: 100%; accent-color: var(--pv-blue); }
 .polyviewer-opacity span { text-align: right; }
-.polyviewer-offset { grid-column: 1; display: flex; align-items: center; gap: 5px; }
-.polyviewer-offset input { width: 68px; padding: 4px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 3px; color: white; background: rgb(0 0 0 / 20%); }
+.polyviewer-name-tag { grid-column: 1; display: flex; align-items: center; gap: 5px; }
+.polyviewer-name-tag input { accent-color: var(--pv-blue); }
 .polyviewer-replay-list button { grid-column: 2; border: 0; color: #ffb4b4; background: transparent; font: 10px/1 system-ui, sans-serif; cursor: pointer; }
 .polyviewer-replay-dialog {
   width: min(460px, calc(100vw - 32px));

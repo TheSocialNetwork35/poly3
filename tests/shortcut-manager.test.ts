@@ -15,12 +15,14 @@ describe("ShortcutManager", () => {
     manager.handle(key("KeyK"));
     manager.handle(key("KeyK", true));
     manager.handle(key("Delete"));
-    manager.handle(key("F7"));
+    manager.handle(key("F8"));
+    manager.handle(key("ArrowDown"));
     expect(actions.onTogglePlayback).toHaveBeenCalledOnce();
     expect(actions.onAddCameraPoint).toHaveBeenCalledOnce();
     expect(actions.onUpdateCameraPoint).toHaveBeenCalledOnce();
     expect(actions.onDeleteCameraPoint).toHaveBeenCalledOnce();
     expect(actions.onToggleCleanPreview).toHaveBeenCalledOnce();
+    expect(actions.onRestart).toHaveBeenCalledOnce();
     manager.dispose();
   });
 
@@ -71,6 +73,7 @@ function createActions() {
   return {
     onToggleEditor: vi.fn(),
     onTogglePlayback: vi.fn(),
+    onRestart: vi.fn(),
     onStep: vi.fn(),
     onAddCameraPoint: vi.fn(),
     onUpdateCameraPoint: vi.fn(),

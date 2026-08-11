@@ -13,7 +13,7 @@ function replayManagementMethods() {
   return {
     listReplays: () => [{
       id: "main", name: "Main Run", visible: true, opacity: 1,
-      offsetMilliseconds: 0, removable: false,
+      nameTagVisible: false, removable: false,
     }],
     getCar: () => fakeCar,
     getNativeCameraPose: () => null,
@@ -26,13 +26,14 @@ function replayManagementMethods() {
       name: name ?? "Replay 2",
       visible: true,
       opacity: 1,
-      offsetMilliseconds: 0,
+      nameTagVisible: false,
       removable: true,
     }),
     setReplayName() {},
     setReplayVisible() {},
     setReplayOpacity() {},
-    setReplayOffset() {},
+    setReplayNameTagVisible() {},
+    refreshOverlays() {},
     removeReplay() {},
     evaluateFrame() {},
   };
@@ -163,7 +164,7 @@ describe("ReplayBridge", () => {
       setDriver() {}, setNativePaused() {}, seekFrame() {},
     } satisfies PolyTrackReplayRuntimeBridge;
     const setOpacity = vi.spyOn(runtimeReplay, "setReplayOpacity");
-    const setOffset = vi.spyOn(runtimeReplay, "setReplayOffset");
+    const setNameTag = vi.spyOn(runtimeReplay, "setReplayNameTagVisible");
     const replay = new ReplayBridge(
       { replay: runtimeReplay } as unknown as PolyTrackBridge,
       new MasterTimeline(),
@@ -171,9 +172,9 @@ describe("ReplayBridge", () => {
 
     expect(replay.getCar("main")).toBe(fakeCar);
     replay.setReplayOpacity("main", 0.7);
-    replay.setReplayOffset("main", 9_000);
+    replay.setReplayNameTagVisible("main", true);
     expect(setOpacity).toHaveBeenCalledWith("main", 0.7);
-    expect(setOffset).toHaveBeenCalledWith("main", 2_000);
+    expect(setNameTag).toHaveBeenCalledWith("main", true);
     replay.dispose();
   });
 

@@ -37,8 +37,17 @@ if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.des
 if (!bundle.includes("pvRequestedFrames=pvReplay.durationFrames") || bundle.includes("durationOverrideFrames")) {
   throw new Error("Imported leaderboard frame metadata can still alter the authoritative shot duration.");
 }
+if (bundle.includes("pvReplay.setReplayOffset=") || bundle.includes("polyviewerOffsetFrames")) {
+  throw new Error("Removed replay offset controls remain in the production runtime.");
+}
 if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvEntry.car.update(.001)")) {
   throw new Error("The production bundle does not contain exact native frame evaluation.");
+}
+if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("pvReplay.setReplayNameTagVisible=")) {
+  throw new Error("The production bundle does not contain camera-facing replay name labels.");
+}
+if (!bundle.includes("this.polyviewerVisible!==!1") || !bundle.includes("for(const e of(0,l.gn)(this,Pe,\"f\"))e.clear()")) {
+  throw new Error("Hidden replay cars can still retain native particles or skidmark trails.");
 }
 if (!bundle.includes("polyviewerBeginCapture(e,t)") || !bundle.includes("polyviewerRenderFrame()") || !bundle.includes("polyviewerEndCapture()")) {
   throw new Error("The production bundle does not contain deterministic WebGL capture controls.");

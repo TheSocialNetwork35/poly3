@@ -22,6 +22,7 @@ export class ReplayTimeline {
   #markers: HTMLElement;
   #segments: HTMLElement;
   #dragging = false;
+  #latestTimeFrames = 0;
   #durationMicroseconds = 0;
   #selectedCameraPointId: string | null = null;
   #pointElements = new Map<string, HTMLButtonElement>();
@@ -67,8 +68,13 @@ export class ReplayTimeline {
     this.element.querySelector('[data-action="step-back"]')?.addEventListener("click", () => actions.onStep(-16_000));
     playButton.addEventListener("click", actions.onTogglePlayback);
     this.element.querySelector('[data-action="step-forward"]')?.addEventListener("click", () => actions.onStep(16_000));
-    scrubber.addEventListener("pointerdown", () => { this.#dragging = true; });
-    scrubber.addEventListener("pointerup", () => { this.#dragging = false; });
+    scrubber.addEventListener("pointerdown", (event) => {
+      this.#dragging = true;
+      scrubber.setPointerCapture?.(event.pointerId);
+    });
+    for (const eventName of ["pointerup", "pointercancel", "lostpointercapture", "change", "blur"]) {
+      scrubber.addEventListener(eventName, this.#finishScrub);
+    }
     scrubber.addEventListener("input", () => {
       actions.onSeek(Number.parseInt(scrubber.value, 10) * MICROSECONDS_PER_FRAME);
     });
@@ -84,8 +90,9 @@ export class ReplayTimeline {
     const durationFrames = Math.round(status.durationMicroseconds / MICROSECONDS_PER_FRAME);
     this.#durationMicroseconds = status.durationMicroseconds;
     const timeFrames = Math.round(status.timeMicroseconds / MICROSECONDS_PER_FRAME);
+    this.#latestTimeFrames = Math.min(timeFrames, durationFrames);
     this.#scrubber.max = Math.max(0, durationFrames).toString();
-    if (!this.#dragging) this.#scrubber.value = Math.min(timeFrames, durationFrames).toString();
+    if (!this.#dragging) this.#scrubber.value = this.#latestTimeFrames.toString();
     this.#scrubber.disabled = !status.connected;
     this.#time.textContent = `${formatTime(status.timeMicroseconds)} / ${formatTime(status.durationMicroseconds)}`;
 
@@ -128,6 +135,11 @@ export class ReplayTimeline {
       marker.classList.toggle("is-selected", point.id === this.#selectedCameraPointId);
     }
   }
+
+  #finishScrub = (): void => {
+    this.#dragging = false;
+    this.#scrubber.value = this.#latestTimeFrames.toString();
+  };
 
   #renderModeSegments(points: readonly CameraKeyframe[]): void {
     const duration = Math.max(1, this.#durationMicroseconds);

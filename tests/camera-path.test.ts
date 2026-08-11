@@ -64,4 +64,15 @@ describe("evaluateCameraPath", () => {
     expect(Number.isFinite(forward.x)).toBe(true);
     expect(Math.hypot(forward.x, forward.y, forward.z)).toBeCloseTo(1);
   });
+
+  it("deterministically uses the latest point when duplicate timestamps exist", () => {
+    const result = evaluateCameraPath([
+      point("before", 0, state(0)),
+      point("old", 1_000_000, state(2)),
+      point("latest", 1_000_000, state(8, 1)),
+      point("after", 2_000_000, state(10)),
+    ], 1_000_000);
+    expect(result?.position.x).toBe(8);
+    expect(result?.fov).toBe(68);
+  });
 });

@@ -11,6 +11,7 @@ export interface PolyViewerKeyDetail {
 interface ShortcutActions {
   onToggleEditor: () => void;
   onTogglePlayback: () => void;
+  onRestart: () => void;
   onStep: (deltaMicroseconds: number) => void;
   onAddCameraPoint: () => void;
   onUpdateCameraPoint: () => void;
@@ -48,11 +49,12 @@ export class ShortcutManager {
     if (!this.#active) return false;
     if (detail.eventType === "keydown" && !detail.repeat) {
       if (detail.code === "Space") this.#actions.onTogglePlayback();
+      else if (detail.code === "ArrowDown") this.#actions.onRestart();
       else if (detail.code === "ArrowLeft") this.#actions.onStep(detail.shiftKey ? -1_000_000 : -16_000);
       else if (detail.code === "ArrowRight") this.#actions.onStep(detail.shiftKey ? 1_000_000 : 16_000);
       else if (detail.code === "KeyK" && detail.shiftKey) this.#actions.onUpdateCameraPoint();
       else if (detail.code === "KeyK") this.#actions.onAddCameraPoint();
-      else if (detail.code === "F7") this.#actions.onToggleCleanPreview();
+      else if (detail.code === "F8") this.#actions.onToggleCleanPreview();
       else if (detail.code === "KeyR") this.#actions.onResetCamera();
       else if (detail.code === "Digit1") this.#actions.onCameraMode("fixed");
       else if (detail.code === "Digit2") this.#actions.onCameraMode("lookAt");

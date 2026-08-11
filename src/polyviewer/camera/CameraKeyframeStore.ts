@@ -35,6 +35,17 @@ export class CameraKeyframeStore {
     return point;
   }
 
+  addOrUpdateAtTime(timeMicroseconds: number, state: CinematicCameraState): CameraKeyframe {
+    requireTime(timeMicroseconds);
+    const existing = [...this.#points].reverse().find(
+      (point) => point.timeMicroseconds === timeMicroseconds,
+    );
+    if (!existing) return this.add(timeMicroseconds, state);
+    existing.state = migrateCameraState(state);
+    this.#sortAndNotify();
+    return existing;
+  }
+
   update(id: string, timeMicroseconds: number, state: CinematicCameraState): void {
     requireTime(timeMicroseconds);
     const point = this.#requirePoint(id);
@@ -74,7 +85,9 @@ export class CameraKeyframeStore {
   }
 
   #sortAndNotify(): void {
-    this.#points.sort((a, b) => a.timeMicroseconds - b.timeMicroseconds || a.id.localeCompare(b.id));
+    // Modern JavaScript sorting is stable. Equal-time points retain creation
+    // order so the most recently created one deterministically wins.
+    this.#points.sort((a, b) => a.timeMicroseconds - b.timeMicroseconds);
     this.#notify();
   }
 

@@ -59,7 +59,7 @@ shell = new EditorShell({
   onReplayNameChange: (id, name) => replayBridge?.setReplayName(id, name),
   onReplayVisibilityChange: (id, visible) => replayBridge?.setReplayVisible(id, visible),
   onReplayOpacityChange: (id, opacity) => replayBridge?.setReplayOpacity(id, opacity),
-  onReplayOffsetChange: (id, offsetMilliseconds) => replayBridge?.setReplayOffset(id, offsetMilliseconds),
+  onReplayNameTagVisibilityChange: (id, visible) => replayBridge?.setReplayNameTagVisible(id, visible),
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),
   onOpenRender: () => renderPanel.open(masterTimeline.durationMicroseconds),
@@ -98,6 +98,10 @@ const shortcuts = new ShortcutManager({
   onTogglePlayback: () => {
     cameraEditAuthority.resumePath();
     replayBridge?.togglePlayback();
+  },
+  onRestart: () => {
+    cameraEditAuthority.resumePath();
+    replayBridge?.restart();
   },
   onStep: (deltaMicroseconds) => {
     cameraEditAuthority.resumePath();
@@ -210,7 +214,7 @@ function selectCameraPoint(id: string): void {
 
 function addCameraPoint(): void {
   if (!cameraController) return;
-  const point = cameraPoints.add(
+  const point = cameraPoints.addOrUpdateAtTime(
     masterTimeline.timeMicroseconds,
     cameraController.captureState(),
   );

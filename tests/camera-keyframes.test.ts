@@ -45,4 +45,13 @@ describe("CameraKeyframeStore", () => {
     expect(() => store.add(-1, cameraState)).toThrow(RangeError);
     expect(() => store.add(1.5, cameraState)).toThrow(RangeError);
   });
+
+  it("updates an accidental same-time point without creating an ambiguous duplicate", () => {
+    const store = new CameraKeyframeStore();
+    const original = store.addOrUpdateAtTime(1_000_000, cameraState);
+    const updated = store.addOrUpdateAtTime(1_000_000, { ...cameraState, fov: 45 });
+    expect(updated.id).toBe(original.id);
+    expect(store.points).toHaveLength(1);
+    expect(store.points[0]?.state.fov).toBe(45);
+  });
 });

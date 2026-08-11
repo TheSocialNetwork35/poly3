@@ -47,7 +47,8 @@ declare global {
     setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
     setReplayOpacity(id: string, opacity: number): void;
-    setReplayOffset(id: string, offsetMilliseconds: number): void;
+    setReplayNameTagVisible?(id: string, visible: boolean): void;
+    refreshOverlays?(): void;
     removeReplay(id: string): void;
     nativeCameraPose: PolyTrackCameraPose | null;
     setDriver(driver: PolyTrackReplayDriver | null): void;
@@ -67,7 +68,7 @@ declare global {
     name: string;
     visible: boolean;
     opacity: number;
-    offsetMilliseconds: number;
+    nameTagVisible: boolean;
     removable: boolean;
   }
 

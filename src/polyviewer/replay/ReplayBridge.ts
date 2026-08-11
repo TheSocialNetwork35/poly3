@@ -135,11 +135,12 @@ export class ReplayBridge {
     this.#notify();
   }
 
-  setReplayOffset(id: string, offsetMilliseconds: number): void {
-    this.timeline.pause();
-    const maximum = Math.floor(this.timeline.durationMicroseconds / MICROSECONDS_PER_FRAME);
-    const safeOffset = Math.max(0, Math.min(maximum, Math.round(offsetMilliseconds)));
-    this.#requireRuntimeReplay().setReplayOffset(id, safeOffset);
+  setReplayNameTagVisible(id: string, visible: boolean): void {
+    const replay = this.#requireRuntimeReplay();
+    if (typeof replay.setReplayNameTagVisible !== "function") {
+      throw new Error("Reload once to enable replay name labels.");
+    }
+    replay.setReplayNameTagVisible(id, visible);
     this.#notify();
   }
 
@@ -319,13 +320,22 @@ export class ReplayBridge {
 
 function listRuntimeReplays(replay: PolyTrackReplayRuntimeBridge | null): PolyViewerReplaySummary[] {
   if (!replay) return [];
-  if (typeof replay.listReplays === "function") return replay.listReplays();
+  if (typeof replay.listReplays === "function") {
+    return replay.listReplays().map((summary) => ({
+      id: summary.id,
+      name: summary.name,
+      visible: summary.visible,
+      opacity: summary.opacity,
+      removable: summary.removable,
+      nameTagVisible: summary.nameTagVisible ?? false,
+    }));
+  }
   return replay.primaryCar ? [{
     id: "main",
     name: "Main Replay",
     visible: true,
     opacity: 1,
-    offsetMilliseconds: 0,
+    nameTagVisible: false,
     removable: false,
   }] : [];
 }

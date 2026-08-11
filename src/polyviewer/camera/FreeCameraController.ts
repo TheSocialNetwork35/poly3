@@ -284,6 +284,10 @@ export class FreeCameraController {
     }
     camera.updateMatrixWorld(true);
     camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    // Native car updates happen before PolyViewer applies its final camera.
+    // Refresh enabled billboards here so they face the camera that is actually
+    // rendered, including deterministic export frames.
+    this.#bridge.replay?.refreshOverlays?.();
   }
 
   #tick = (now: number): void => {

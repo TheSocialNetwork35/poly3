@@ -9,16 +9,17 @@ export function evaluateCameraPath(
   points: readonly CameraKeyframe[],
   timeMicroseconds: number,
 ): CinematicCameraState | null {
-  if (points.length === 0) return null;
-  if (points.length === 1 || timeMicroseconds <= points[0]!.timeMicroseconds) {
-    return normalizeState(points[0]!.state);
+  const timeline = collapseCoincidentPoints(points);
+  if (timeline.length === 0) return null;
+  if (timeline.length === 1 || timeMicroseconds <= timeline[0]!.timeMicroseconds) {
+    return normalizeState(timeline[0]!.state);
   }
-  const last = points[points.length - 1]!;
+  const last = timeline[timeline.length - 1]!;
   if (timeMicroseconds >= last.timeMicroseconds) return normalizeState(last.state);
 
-  const endIndex = points.findIndex((point) => point.timeMicroseconds >= timeMicroseconds);
-  const start = points[endIndex - 1]!;
-  const end = points[endIndex]!;
+  const endIndex = timeline.findIndex((point) => point.timeMicroseconds >= timeMicroseconds);
+  const start = timeline[endIndex - 1]!;
+  const end = timeline[endIndex]!;
   const span = end.timeMicroseconds - start.timeMicroseconds;
   const linear = span === 0 ? 1 : (timeMicroseconds - start.timeMicroseconds) / span;
   const amount = linear * linear * (3 - 2 * linear);
@@ -59,6 +60,15 @@ export function evaluateCameraPath(
       amount,
     },
   };
+}
+
+function collapseCoincidentPoints(points: readonly CameraKeyframe[]): CameraKeyframe[] {
+  const result: CameraKeyframe[] = [];
+  for (const point of points) {
+    if (result.at(-1)?.timeMicroseconds === point.timeMicroseconds) result[result.length - 1] = point;
+    else result.push(point);
+  }
+  return result;
 }
 
 function normalizeState(state: CinematicCameraState): CinematicCameraState {
