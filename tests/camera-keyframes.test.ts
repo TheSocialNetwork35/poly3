@@ -20,6 +20,7 @@ describe("CameraKeyframeStore", () => {
     const earlier = store.add(2_000_000, cameraState);
     expect(store.points.map((point) => point.id)).toEqual([earlier.id, later.id]);
     expect(store.points[0]?.state).not.toBe(cameraState);
+    expect(store.points[0]?.state.mode).toBe("fixed");
   });
 
   it("supports update, move, duplicate, remove, and subscriptions", () => {

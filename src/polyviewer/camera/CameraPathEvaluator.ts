@@ -1,6 +1,9 @@
 import { slerpQuaternions, type VectorValue } from "../math/quaternion";
 import type { CameraKeyframe } from "./CameraKeyframeStore";
-import type { CinematicCameraState } from "./FreeCameraController";
+import {
+  normalizeCameraMode,
+  type CinematicCameraState,
+} from "./FreeCameraController";
 
 export function evaluateCameraPath(
   points: readonly CameraKeyframe[],
@@ -8,10 +11,10 @@ export function evaluateCameraPath(
 ): CinematicCameraState | null {
   if (points.length === 0) return null;
   if (points.length === 1 || timeMicroseconds <= points[0]!.timeMicroseconds) {
-    return structuredClone(points[0]!.state);
+    return normalizeState(points[0]!.state);
   }
   const last = points[points.length - 1]!;
-  if (timeMicroseconds >= last.timeMicroseconds) return structuredClone(last.state);
+  if (timeMicroseconds >= last.timeMicroseconds) return normalizeState(last.state);
 
   const endIndex = points.findIndex((point) => point.timeMicroseconds >= timeMicroseconds);
   const start = points[endIndex - 1]!;
@@ -19,9 +22,11 @@ export function evaluateCameraPath(
   const span = end.timeMicroseconds - start.timeMicroseconds;
   const linear = span === 0 ? 1 : (timeMicroseconds - start.timeMicroseconds) / span;
   const amount = linear * linear * (3 - 2 * linear);
-  const sameMode = start.state.mode === end.state.mode;
+  const startMode = normalizeCameraMode(start.state.mode);
+  const endMode = normalizeCameraMode(end.state.mode);
+  const sameMode = startMode === endMode;
   return {
-    mode: sameMode ? start.state.mode : "free",
+    mode: sameMode ? startMode : "fixed",
     position: lerpVector(start.state.position, end.state.position, amount),
     orientation: slerpQuaternions(start.state.orientation, end.state.orientation, amount),
     fov: lerp(start.state.fov, end.state.fov, amount),
@@ -33,7 +38,19 @@ export function evaluateCameraPath(
       end.state.attachedOrientation,
       amount,
     ),
+    lookAtOffset: slerpQuaternions(
+      start.state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+      end.state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 },
+      amount,
+    ),
   };
+}
+
+function normalizeState(state: CinematicCameraState): CinematicCameraState {
+  const result = structuredClone(state);
+  result.mode = normalizeCameraMode(result.mode);
+  result.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  return result;
 }
 
 function lerpVector(a: VectorValue, b: VectorValue, amount: number): VectorValue {

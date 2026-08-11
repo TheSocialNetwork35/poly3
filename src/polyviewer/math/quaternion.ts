@@ -11,6 +11,26 @@ export interface VectorValue {
   z: number;
 }
 
+export function lookAtQuaternion(from: VectorValue, target: VectorValue): QuaternionValue {
+  const forward = normalizeVector({
+    x: target.x - from.x,
+    y: target.y - from.y,
+    z: target.z - from.z,
+  });
+  if (Math.hypot(forward.x, forward.y, forward.z) === 0) return { x: 0, y: 0, z: 0, w: 1 };
+  const z = { x: -forward.x, y: -forward.y, z: -forward.z };
+  let x = normalizeVector(crossVectors({ x: 0, y: 1, z: 0 }, z));
+  if (Math.hypot(x.x, x.y, x.z) < 1e-6) {
+    x = normalizeVector(crossVectors({ x: 0, y: 0, z: 1 }, z));
+  }
+  const y = crossVectors(z, x);
+  return quaternionFromRotationMatrix(
+    x.x, y.x, z.x,
+    x.y, y.y, z.y,
+    x.z, y.z, z.z,
+  );
+}
+
 export function quaternionFromYawPitchRoll(
   yaw: number,
   pitch: number,
@@ -74,6 +94,47 @@ export function slerpQuaternions(a: QuaternionValue, b: QuaternionValue, amount:
 function normalizeQuaternion(q: QuaternionValue): QuaternionValue {
   const length = Math.hypot(q.x, q.y, q.z, q.w) || 1;
   return { x: q.x / length, y: q.y / length, z: q.z / length, w: q.w / length };
+}
+
+function normalizeVector(vector: VectorValue): VectorValue {
+  const length = Math.hypot(vector.x, vector.y, vector.z);
+  if (length === 0) return { x: 0, y: 0, z: 0 };
+  return { x: vector.x / length, y: vector.y / length, z: vector.z / length };
+}
+
+function crossVectors(a: VectorValue, b: VectorValue): VectorValue {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+function quaternionFromRotationMatrix(
+  m11: number, m12: number, m13: number,
+  m21: number, m22: number, m23: number,
+  m31: number, m32: number, m33: number,
+): QuaternionValue {
+  const trace = m11 + m22 + m33;
+  if (trace > 0) {
+    const s = 0.5 / Math.sqrt(trace + 1);
+    return normalizeQuaternion({
+      x: (m32 - m23) * s,
+      y: (m13 - m31) * s,
+      z: (m21 - m12) * s,
+      w: 0.25 / s,
+    });
+  }
+  if (m11 > m22 && m11 > m33) {
+    const s = 2 * Math.sqrt(1 + m11 - m22 - m33);
+    return normalizeQuaternion({ x: 0.25 * s, y: (m12 + m21) / s, z: (m13 + m31) / s, w: (m32 - m23) / s });
+  }
+  if (m22 > m33) {
+    const s = 2 * Math.sqrt(1 + m22 - m11 - m33);
+    return normalizeQuaternion({ x: (m12 + m21) / s, y: 0.25 * s, z: (m23 + m32) / s, w: (m13 - m31) / s });
+  }
+  const s = 2 * Math.sqrt(1 + m33 - m11 - m22);
+  return normalizeQuaternion({ x: (m13 + m31) / s, y: (m23 + m32) / s, z: 0.25 * s, w: (m21 - m12) / s });
 }
 
 export function rotateVector(vector: VectorValue, q: QuaternionValue): VectorValue {

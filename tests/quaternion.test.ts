@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   invertQuaternion,
+  lookAtQuaternion,
   multiplyQuaternions,
   quaternionFromYawPitchRoll,
   rotateVector,
@@ -40,5 +41,19 @@ describe("cinematic camera quaternion math", () => {
     expect(identity.y).toBeCloseTo(0, 10);
     expect(identity.z).toBeCloseTo(0, 10);
     expect(identity.w).toBeCloseTo(1, 10);
+  });
+
+  it("aims Look At camera negative-Z toward the real target position", () => {
+    const orientation = lookAtQuaternion({ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 });
+    const forward = rotateVector({ x: 0, y: 0, z: -1 }, orientation);
+    expect(forward.x).toBeCloseTo(1, 10);
+    expect(forward.y).toBeCloseTo(0, 10);
+    expect(forward.z).toBeCloseTo(0, 10);
+  });
+
+  it("keeps Look At finite when the target is directly overhead", () => {
+    const orientation = lookAtQuaternion({ x: 0, y: 0, z: 0 }, { x: 0, y: 10, z: 0 });
+    expect(Object.values(orientation).every(Number.isFinite)).toBe(true);
+    expect(rotateVector({ x: 0, y: 0, z: -1 }, orientation).y).toBeCloseTo(1, 10);
   });
 });

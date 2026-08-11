@@ -24,13 +24,13 @@ export class EditorShell {
     this.element.className = "polyviewer-shell";
     this.element.innerHTML = `
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
-      <button class="polyviewer-toggle" type="button">Enable FreeCam <kbd>F6</kbd></button>
+      <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F6</kbd></button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
       <div class="polyviewer-camera-modes" aria-label="Camera mode">
         <span>Camera</span>
         <div>
-          <button type="button" data-camera-mode="free">Free</button>
           <button type="button" data-camera-mode="fixed">Fixed</button>
+          <button type="button" data-camera-mode="lookAt">Look At</button>
           <button type="button" data-camera-mode="follow">Follow</button>
           <button type="button" data-camera-mode="attached">Attached</button>
         </div>
@@ -113,20 +113,21 @@ export class EditorShell {
   update(status: FreeCameraStatus): void {
     this.element.classList.toggle("is-active", status.enabled);
     this.toggleButton.innerHTML = status.enabled
-      ? "Disable FreeCam <kbd>F6</kbd>"
-      : "Enable FreeCam <kbd>F6</kbd>";
+      ? "Exit PolyViewer <kbd>F6</kbd>"
+      : "Enter PolyViewer <kbd>F6</kbd>";
     this.#status.textContent = status.enabled
       ? `${status.pointerLocked ? "Camera captured" : "Click the scene to capture"} · ${status.speed.toFixed(1)} u/s · ${status.fov.toFixed(0)}° FOV`
       : "Connected to the real PolyTrack renderer";
     for (const button of this.#modeButtons) {
       const mode = button.dataset.cameraMode as CameraMode;
       button.classList.toggle("is-selected", mode === status.mode);
-      button.disabled = (mode === "follow" || mode === "attached") && !status.targetAvailable;
+      button.disabled = (mode === "lookAt" || mode === "follow" || mode === "attached")
+        && !status.targetAvailable;
     }
     const target = this.element.querySelector<HTMLElement>(".polyviewer-camera-target");
     if (target) target.textContent = status.targetAvailable
       ? "Target: Main Replay"
-      : "Follow modes need a replay";
+      : "Target modes need a replay";
   }
 
   setError(message: string): void {

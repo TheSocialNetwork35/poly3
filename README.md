@@ -35,9 +35,9 @@ npm run preview
 
 The Cloudflare Pages build command is `npm run build`; the output directory is `dist`. `npm run preview` runs the production output with Vite's equivalent local proxy. `npm run preview:pages` runs the same output through Wrangler Pages for platform-specific checks.
 
-## FreeCam controls
+## Camera controls
 
-- `F6`: enable or disable FreeCam
+- `F6`: enter or exit PolyViewer
 - Mouse: look
 - `W A S D`: move
 - `Q / E`: move down/up
@@ -66,12 +66,12 @@ PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay pre
 
 ## Camera modes
 
-- **Free:** independent six-axis camera
-- **Fixed:** preserves an exact world-space shot while the game continues
+- **Fixed:** independent six-axis world camera that stays where the creator places it
+- **Look At:** keeps its world-space position while continuously aiming at the selected real replay car
 - **Follow:** follows the main replay's position while keeping an independent world orientation
 - **Attached:** stores camera position and rotation in the replay car's local space for cockpit, wheel, bumper, roof, and other mounted shots
 
-Changing modes preserves the visible camera pose. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping.
+Changing modes preserves the visible camera pose. Look At derives a robust quaternion from the real target position every frame and supports a local intentional orientation/roll offset. Attached offsets use quaternion transforms, so vehicle turns, jumps, rolls, and resets are inherited without Euler-angle wrapping. Legacy `free` Camera Point data migrates to `fixed` when loaded into the store. The real native **Normal** replay-camera integration is the next stage and is not approximated here.
 
 Camera points store stable ID, exact time, mode, world pose, quaternion orientation, FOV, replay target, follow offset, attached offset/local orientation, and the default Smooth interpolation setting. During playback the same master clock evaluates a smooth ease-in/ease-out path. Rotations use shortest-path quaternion slerp, and transitions between different camera modes use their captured world poses to avoid jumps. Clicking a marker pauses and seeks to its exact time, applies its camera state, and opens the editor. Dragging uses a four-pixel threshold, clamps to replay duration, and preserves the stable point ID.
 

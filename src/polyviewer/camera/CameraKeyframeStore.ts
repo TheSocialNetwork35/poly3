@@ -1,4 +1,7 @@
-import type { CinematicCameraState } from "./FreeCameraController";
+import {
+  normalizeCameraMode,
+  type CinematicCameraState,
+} from "./FreeCameraController";
 
 export interface CameraKeyframe {
   id: string;
@@ -24,7 +27,7 @@ export class CameraKeyframeStore {
     const point: CameraKeyframe = {
       id: createStableId(),
       timeMicroseconds,
-      state: structuredClone(state),
+      state: migrateCameraState(state),
       interpolation: "smooth",
     };
     this.#points.push(point);
@@ -36,7 +39,7 @@ export class CameraKeyframeStore {
     requireTime(timeMicroseconds);
     const point = this.#requirePoint(id);
     point.timeMicroseconds = timeMicroseconds;
-    point.state = structuredClone(state);
+    point.state = migrateCameraState(state);
     this.#sortAndNotify();
   }
 
@@ -78,6 +81,13 @@ export class CameraKeyframeStore {
   #notify(): void {
     for (const listener of this.#listeners) listener(this.#points);
   }
+}
+
+export function migrateCameraState(state: CinematicCameraState): CinematicCameraState {
+  const migrated = structuredClone(state);
+  migrated.mode = normalizeCameraMode(migrated.mode);
+  migrated.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  return migrated;
 }
 
 function requireTime(value: number): void {

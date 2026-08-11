@@ -30,6 +30,7 @@ describe("evaluateCameraPath", () => {
     ], 5_000_000);
     expect(result?.position.x).toBeCloseTo(5, 10);
     expect(result?.fov).toBeCloseTo(65, 10);
+    expect(result?.mode).toBe("fixed");
   });
 
   it("uses shortest-path quaternion interpolation without a 360 degree spin", () => {

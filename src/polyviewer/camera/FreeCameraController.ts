@@ -1,5 +1,6 @@
 import {
   invertQuaternion,
+  lookAtQuaternion,
   multiplyQuaternions,
   quaternionFromYawPitchRoll,
   rotateVector,
@@ -23,10 +24,11 @@ export interface FreeCameraStatus {
   targetAvailable: boolean;
 }
 
-export type CameraMode = "free" | "fixed" | "follow" | "attached";
+export type CameraMode = "fixed" | "lookAt" | "follow" | "attached";
+export type StoredCameraMode = CameraMode | "free";
 
 export interface CinematicCameraState {
-  mode: CameraMode;
+  mode: StoredCameraMode;
   position: VectorValue;
   orientation: QuaternionValue;
   fov: number;
@@ -34,6 +36,7 @@ export interface CinematicCameraState {
   followOffset: VectorValue;
   attachedOffset: VectorValue;
   attachedOrientation: QuaternionValue;
+  lookAtOffset?: QuaternionValue;
 }
 
 export class FreeCameraController {
@@ -46,9 +49,10 @@ export class FreeCameraController {
   #roll = 0;
   #fov = 50;
   #speed = 18;
-  #mode: CameraMode = "free";
+  #mode: CameraMode = "fixed";
   #followOffset = { x: 0, y: 0, z: 0 };
   #attachedOffset = { x: 0, y: 0, z: 0 };
+  #lookAtOffset: QuaternionValue = { x: 0, y: 0, z: 0, w: 1 };
   #getTarget: () => PolyTrackCarTarget | null;
   #lastFrame = performance.now();
   #frameRequest = 0;
@@ -120,18 +124,22 @@ export class FreeCameraController {
         : target
           ? multiplyQuaternions(invertQuaternion(target.orientation), pose.orientation)
           : { ...localOrientation },
+      lookAtOffset: { ...this.#lookAtOffset },
     };
   }
 
   applyState(state: CinematicCameraState): void {
-    this.#mode = state.mode;
+    this.#mode = normalizeCameraMode(state.mode);
     this.#fov = state.fov;
     this.#position = { ...state.position };
     this.#followOffset = { ...state.followOffset };
     this.#attachedOffset = { ...state.attachedOffset };
-    const orientation = state.mode === "attached"
+    this.#lookAtOffset = state.lookAtOffset ?? { x: 0, y: 0, z: 0, w: 1 };
+    const orientation = this.#mode === "attached"
       ? state.attachedOrientation
-      : state.orientation;
+      : this.#mode === "lookAt"
+        ? this.#lookAtOffset
+        : state.orientation;
     const angles = yawPitchRollFromQuaternion(orientation);
     this.#yaw = angles.yaw;
     this.#pitch = angles.pitch;
@@ -289,8 +297,17 @@ export class FreeCameraController {
 
   #evaluatePose(target: CameraTargetPose | null): CameraPose {
     const localOrientation = quaternionFromYawPitchRoll(this.#yaw, this.#pitch, this.#roll);
-    if (!target || this.#mode === "free" || this.#mode === "fixed") {
+    if (!target || this.#mode === "fixed") {
       return { position: { ...this.#position }, orientation: localOrientation };
+    }
+    if (this.#mode === "lookAt") {
+      return {
+        position: { ...this.#position },
+        orientation: multiplyQuaternions(
+          lookAtQuaternion(this.#position, target.position),
+          localOrientation,
+        ),
+      };
     }
     if (this.#mode === "follow") {
       return {
@@ -311,6 +328,15 @@ export class FreeCameraController {
   ): void {
     if (!target) return;
     this.#capturePositionOffset(target, worldPosition);
+    if (this.#mode === "lookAt") {
+      const base = lookAtQuaternion(worldPosition, target.position);
+      const offset = multiplyQuaternions(invertQuaternion(base), worldOrientation);
+      this.#lookAtOffset = offset;
+      const angles = yawPitchRollFromQuaternion(offset);
+      this.#yaw = angles.yaw;
+      this.#pitch = angles.pitch;
+      this.#roll = angles.roll;
+    }
     if (this.#mode === "attached") {
       const local = multiplyQuaternions(invertQuaternion(target.orientation), worldOrientation);
       const angles = yawPitchRollFromQuaternion(local);
@@ -359,6 +385,10 @@ export class FreeCameraController {
       targetAvailable: this.#getTarget() !== null,
     });
   };
+}
+
+export function normalizeCameraMode(mode: StoredCameraMode): CameraMode {
+  return mode === "free" ? "fixed" : mode;
 }
 
 interface CameraTargetPose {
