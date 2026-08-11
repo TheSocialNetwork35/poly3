@@ -18,6 +18,7 @@ PolyViewer is a cinematic replay editor integrated with the real PolyTrack 0.6.2
 - Camera Point markers can be selected and dragged; the compact editor supports exact time, Update, Duplicate, and Delete.
 - **Add Replay** accepts a real PolyTrack recording string and passes it to the native 0.6.2 recording deserializer. Imported runs receive a real `Car`, replay-state buffer, and worker simulation and join the original replay update loop.
 - The replay list exposes native visibility, per-car opacity, a non-negative start offset, rename/remove controls, and a camera-target selector. All five target-aware camera modes resolve stable replay IDs to real cars; Normal reads that car's own native `cameraOrbit`.
+- **Clean Preview** (`F7`) reversibly hides the standard PolyTrack HUD while leaving the real canvas, PolyViewer tools, alerts, and errors available. Exiting PolyViewer always restores the original HUD.
 
 The 5/10/20-car performance qualification, project files, and deterministic video export are not yet presented as finished features.
 
@@ -40,6 +41,7 @@ The Cloudflare Pages build command is `npm run build`; the output directory is `
 ## Camera controls
 
 - `F6`: enter or exit PolyViewer
+- `F7`: toggle Clean Preview while PolyViewer is active
 - Mouse: look
 - `W A S D`: move
 - `Q / E`: move down/up
@@ -62,7 +64,7 @@ When pointer lock is released, click the game canvas to capture the mouse again.
 - Timeline slider: seek or scrub through worker-produced replay frames
 - `↺`: pause and return to the start
 
-One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing; the replay and camera components no longer register competing keyboard listeners. Shortcuts are ignored while typing in an input, textarea, select, or contenteditable element. F7 is intentionally connected only when the reversible Clean Preview stage is implemented, rather than being shipped as a non-working shortcut.
+One capture-phase input bridge intercepts active PolyViewer controls before the original game handlers. `ShortcutManager` is the single owner of editor shortcut routing; the replay and camera components no longer register competing keyboard listeners. Shortcuts are ignored while typing in an input, textarea, select, or contenteditable element.
 
 PolyViewer's Stage 1 replay integration activates in PolyTrack's real replay preview (the game's **Watch** flow). It never invents replay frames. While the simulation worker is still preparing a recording, seeks are clamped to the last verified loaded frame.
 

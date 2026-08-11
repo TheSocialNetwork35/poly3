@@ -55,6 +55,35 @@
 .polyviewer-toggle:disabled { cursor: not-allowed; filter: grayscale(1); }
 .polyviewer-toggle kbd { float: right; color: rgb(255 255 255 / 70%); font: inherit; }
 
+.polyviewer-clean-preview-button {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 5px;
+  color: rgb(255 255 255 / 75%);
+  background: rgb(255 255 255 / 7%);
+  font: 11px/1 "Forced Square", system-ui, sans-serif;
+  cursor: pointer;
+}
+.polyviewer-shell.is-active .polyviewer-clean-preview-button { display: block; }
+.polyviewer-clean-preview-button.is-selected { border-color: rgb(75 125 255 / 70%); color: white; background: rgb(75 125 255 / 30%); }
+.polyviewer-clean-preview-button kbd { float: right; color: rgb(255 255 255 / 55%); font: inherit; }
+
+body.polyviewer-clean-preview #ui {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.polyviewer-clean-preview #ui dialog[open],
+body.polyviewer-clean-preview #ui [role="alert"],
+body.polyviewer-clean-preview #ui [aria-live="assertive"],
+body.polyviewer-clean-preview #ui [class*="error" i] {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
 .polyviewer-status {
   min-height: 28px;
   padding: 10px 2px 4px;

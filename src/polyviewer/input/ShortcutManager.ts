@@ -12,6 +12,7 @@ interface ShortcutActions {
   onAddCameraPoint: () => void;
   onUpdateCameraPoint: () => void;
   onDeleteCameraPoint: () => void;
+  onToggleCleanPreview: () => void;
   onCameraInput: (detail: PolyViewerKeyDetail) => void;
 }
 
@@ -44,6 +45,7 @@ export class ShortcutManager {
       else if (detail.code === "ArrowRight") this.#actions.onStep(detail.shiftKey ? 1_000_000 : 16_000);
       else if (detail.code === "KeyK" && detail.shiftKey) this.#actions.onUpdateCameraPoint();
       else if (detail.code === "KeyK") this.#actions.onAddCameraPoint();
+      else if (detail.code === "F7") this.#actions.onToggleCleanPreview();
       else if (detail.code === "Delete" || detail.code === "Backspace") {
         this.#actions.onDeleteCameraPoint();
       } else {

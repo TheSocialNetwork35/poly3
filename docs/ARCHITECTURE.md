@@ -51,6 +51,8 @@ The same narrow bridge now owns imported replay lifecycle. It resolves the recor
 
 Replay IDs remain stable for the lifetime of the Watch scene. UI settings call the native `Car.setVisible`, `Car.setOpacity`, and name-tag methods on the selected entry; imported cars have independent cloned car resources through the original Car constructor, and removal deletes the worker car before disposing its scene resources. A non-negative offset maps master frame `m` to `max(0, m - offset)` inside the one verified native replay-application loop. This retains `Car.setCarState` reset detection instead of moving transforms externally. Camera targeting resolves the same ID to either the real car transform or that car's own updated native orbit camera. Imports are deliberately capped at 20 until measured 5/10/20-car qualification is complete.
 
+Clean Preview is a reversible presentation state, not DOM destruction. It toggles one class on `body`; CSS hides the native `#ui` while preserving the separate canvas and PolyViewer controls, and explicitly re-exposes open dialogs, alerts, assertive live regions, and error elements. Disabling PolyViewer or disposing its controller removes the class, restoring the original UI without trying to reconstruct upstream nodes or inline styles.
+
 ## Known unknowns to resolve next
 
 - Stable car scene nodes and material ownership for per-replay opacity.

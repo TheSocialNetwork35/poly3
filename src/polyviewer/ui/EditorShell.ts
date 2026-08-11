@@ -15,6 +15,7 @@ interface EditorShellOptions {
   onReplayOpacityChange?: (id: string, opacity: number) => void;
   onReplayOffsetChange?: (id: string, offsetMilliseconds: number) => void;
   onRemoveReplay?: (id: string) => void;
+  onToggleCleanPreview?: () => void;
 }
 
 export class EditorShell {
@@ -31,6 +32,7 @@ export class EditorShell {
   #targetSelect: HTMLSelectElement;
   #replayList: HTMLElement;
   #replays: PolyViewerReplaySummary[] = [];
+  #cleanPreviewButton: HTMLButtonElement;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -38,6 +40,7 @@ export class EditorShell {
     this.element.innerHTML = `
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
       <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F6</kbd></button>
+      <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F7</kbd></button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
       <div class="polyviewer-camera-modes" aria-label="Camera mode">
         <span>Camera</span>
@@ -78,6 +81,7 @@ export class EditorShell {
           <div><dt>Add point</dt><dd>K</dd></div>
           <div><dt>Update point</dt><dd>Shift + K</dd></div>
           <div><dt>Delete point</dt><dd>Delete</dd></div>
+          <div><dt>Clean Preview</dt><dd>F7</dd></div>
           <div><dt>Play / pause</dt><dd>Space</dd></div>
         </dl>
       </details>
@@ -96,9 +100,12 @@ export class EditorShell {
     `;
     const toggle = this.element.querySelector<HTMLButtonElement>(".polyviewer-toggle");
     const status = this.element.querySelector<HTMLElement>(".polyviewer-status");
-    if (!toggle || !status) throw new Error("Failed to construct the PolyViewer editor shell.");
+    const cleanPreviewButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-clean-preview-button");
+    if (!toggle || !status || !cleanPreviewButton) throw new Error("Failed to construct the PolyViewer editor shell.");
     this.toggleButton = toggle;
     this.#status = status;
+    this.#cleanPreviewButton = cleanPreviewButton;
+    cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
     this.#modeButtons = Array.from(
       this.element.querySelectorAll<HTMLButtonElement>("[data-camera-mode]"),
     );
@@ -195,6 +202,11 @@ export class EditorShell {
     this.#selectedPointId = point?.id ?? null;
     this.#pointEditor.classList.toggle("is-visible", point !== null);
     if (point) this.#pointTime.value = (point.timeMicroseconds / 1_000_000).toFixed(3);
+  }
+
+  setCleanPreview(enabled: boolean): void {
+    this.#cleanPreviewButton.classList.toggle("is-selected", enabled);
+    this.#cleanPreviewButton.setAttribute("aria-pressed", String(enabled));
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {

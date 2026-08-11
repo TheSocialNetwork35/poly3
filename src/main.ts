@@ -3,6 +3,7 @@ import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
 import { evaluateCameraPath } from "./polyviewer/camera/CameraPathEvaluator";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
 import { ShortcutManager } from "./polyviewer/input/ShortcutManager";
+import { CleanPreviewController } from "./polyviewer/preview/CleanPreviewController";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
@@ -12,7 +13,9 @@ const masterTimeline = new MasterTimeline();
 const cameraPoints = new CameraKeyframeStore();
 let cameraController: FreeCameraController | null = null;
 let selectedCameraPointId: string | null = null;
-const shell = new EditorShell({
+let shell: EditorShell;
+const cleanPreview = new CleanPreviewController(document, (enabled) => shell.setCleanPreview(enabled));
+shell = new EditorShell({
   onCameraModeChange: (mode) => cameraController?.setMode(mode),
   onAddCameraPoint: addCameraPoint,
   onMoveCameraPoint: moveCameraPoint,
@@ -31,6 +34,7 @@ const shell = new EditorShell({
   onReplayOpacityChange: (id, opacity) => replayBridge?.setReplayOpacity(id, opacity),
   onReplayOffsetChange: (id, offsetMilliseconds) => replayBridge?.setReplayOffset(id, offsetMilliseconds),
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
+  onToggleCleanPreview: () => cleanPreview.toggle(),
 });
 let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
@@ -55,6 +59,7 @@ const shortcuts = new ShortcutManager({
   onDeleteCameraPoint: () => {
     if (selectedCameraPointId) deleteCameraPoint(selectedCameraPointId);
   },
+  onToggleCleanPreview: () => cleanPreview.toggle(),
   onCameraInput: (detail) => cameraController?.handleInput(detail),
 });
 cameraPoints.subscribe((points) => {
@@ -92,6 +97,7 @@ void waitForPolyTrackBridge()
       getNativeCameraPose: (id) => replayBridge?.getNativeCameraPose(id) ?? null,
       onChange: (status) => {
         shell.update(status);
+        if (!status.enabled) cleanPreview.setEnabled(false);
         replayBridge?.setActive(status.enabled);
         shortcuts.setActive(status.enabled);
       },
@@ -101,6 +107,7 @@ void waitForPolyTrackBridge()
       cameraController?.dispose();
       replayBridge?.dispose();
       shortcuts.dispose();
+      cleanPreview.dispose();
     }, { once: true });
   })
   .catch((error: unknown) => {
