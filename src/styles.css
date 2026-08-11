@@ -135,15 +135,23 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 }
 
 .polyviewer-shell.has-error .polyviewer-status { color: #ff8585; }
-.polyviewer-shortcut-sheet {
+.polyviewer-right-stack {
   position: fixed;
   top: max(14px, env(safe-area-inset-top));
   right: max(14px, env(safe-area-inset-right));
   z-index: 100001;
   display: none;
-  width: min(250px, calc(100vw - 28px));
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: min(360px, calc(100vw - 28px));
+  max-height: calc(100vh - max(98px, calc(env(safe-area-inset-bottom) + 84px)));
+  user-select: none;
+}
+.polyviewer-right-stack.is-active { display: flex; }
+.polyviewer-replay-panel,
+.polyviewer-shortcut-sheet {
   box-sizing: border-box;
-  padding: 8px 11px;
   border: 1px solid rgb(255 255 255 / 16%);
   border-radius: 6px;
   color: white;
@@ -151,11 +159,43 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
   font-family: "Forced Square", system-ui, sans-serif;
   backdrop-filter: blur(12px);
-  user-select: none;
 }
-.polyviewer-shortcut-sheet.is-active { display: block; }
+.polyviewer-replay-panel { min-height: 0; overflow: hidden; }
+.polyviewer-replay-panel details[open] {
+  display: flex;
+  min-height: 0;
+  max-height: calc(100vh - max(152px, calc(env(safe-area-inset-bottom) + 138px)));
+  flex-direction: column;
+}
+.polyviewer-replay-panel summary,
+.polyviewer-shortcut-sheet summary {
+  padding: 10px 11px;
+  color: rgb(255 255 255 / 78%);
+  font-size: 11px;
+  cursor: pointer;
+}
+.polyviewer-replay-panel summary {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style-position: inside;
+}
+.polyviewer-replay-panel summary::before { content: "▸"; color: rgb(255 255 255 / 45%); }
+.polyviewer-replay-panel details[open] summary::before { content: "▾"; }
+.polyviewer-replay-panel summary::marker { content: ""; }
+.polyviewer-replay-count { margin-left: auto; color: rgb(255 255 255 / 48%); font: 10px/1 system-ui, sans-serif; }
+.polyviewer-replay-panel-content {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0 10px 10px;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+}
+.polyviewer-shortcut-sheet { flex: 0 0 auto; width: min(250px, 100%); align-self: flex-end; }
 .polyviewer-shortcut-sheet summary { color: rgb(255 255 255 / 75%); font-size: 11px; cursor: pointer; }
-.polyviewer-shortcut-sheet dl { margin: 8px 0 2px; font: 10px/1.35 system-ui, sans-serif; }
+.polyviewer-shortcut-sheet dl { margin: 0; padding: 0 11px 10px; font: 10px/1.35 system-ui, sans-serif; }
 .polyviewer-shortcut-sheet dl div { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; }
 .polyviewer-shortcut-sheet dt { color: rgb(255 255 255 / 48%); }
 .polyviewer-shortcut-sheet dd { margin: 0; color: rgb(255 255 255 / 88%); text-align: right; }
@@ -246,17 +286,16 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 .polyviewer-shell.is-active .polyviewer-add-point { display: block; }
 .polyviewer-add-point:hover { background: rgb(75 125 255 / 42%); }
 .polyviewer-replays {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 9px;
+  padding-top: 10px;
   color: rgb(255 255 255 / 55%);
   font: 11px/1 system-ui, sans-serif;
 }
-.polyviewer-shell.is-active .polyviewer-replays { display: flex; }
 .polyviewer-replay-search {
-  display: none;
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 7px;
@@ -264,7 +303,6 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   color: rgb(255 255 255 / 52%);
   font: 10px/1 system-ui, sans-serif;
 }
-.polyviewer-shell.is-active .polyviewer-replay-search { display: grid; }
 .polyviewer-replay-search input {
   min-width: 0;
   padding: 6px 7px;
@@ -284,14 +322,42 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   cursor: pointer;
 }
 .polyviewer-add-replay:disabled { cursor: not-allowed; opacity: 0.35; }
+.polyviewer-add-replay,
+.polyviewer-replay-panel summary,
+.polyviewer-shortcut-sheet summary { transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1); }
+.polyviewer-add-replay:active,
+.polyviewer-replay-panel summary:active,
+.polyviewer-shortcut-sheet summary:active { transform: scale(0.98); }
 .polyviewer-replay-list {
-  display: none;
-  max-height: min(320px, 34vh);
+  display: block;
+  min-height: 42px;
+  max-height: min(600px, calc(100vh - 270px));
   margin-top: 8px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(111 143 231 / 72%) rgb(255 255 255 / 6%);
   border-top: 1px solid rgb(255 255 255 / 10%);
 }
-.polyviewer-shell.is-active .polyviewer-replay-list.is-visible { display: block; }
+.polyviewer-replay-list:not(.is-visible)::before {
+  content: attr(data-empty-label);
+  display: block;
+  padding: 14px 4px 8px;
+  color: rgb(255 255 255 / 38%);
+  font: 10px/1.2 system-ui, sans-serif;
+  text-align: center;
+}
+.polyviewer-replay-list::-webkit-scrollbar { width: 7px; }
+.polyviewer-replay-list::-webkit-scrollbar-track { background: rgb(255 255 255 / 5%); border-radius: 999px; }
+.polyviewer-replay-list::-webkit-scrollbar-thumb {
+  min-height: 30px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(111 143 231 / 76%);
+  background-clip: padding-box;
+}
 .polyviewer-replay-list article {
   display: grid;
   grid-template-columns: minmax(80px, 1fr) auto;

@@ -39,6 +39,8 @@ export class EditorShell {
   #cleanPreviewButton: HTMLButtonElement;
   #renderButton: HTMLButtonElement;
   #shortcutSheet: HTMLElement;
+  #rightStack: HTMLElement;
+  #replayPanel: HTMLElement;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -58,16 +60,9 @@ export class EditorShell {
           <button type="button" data-camera-mode="follow">Follow</button>
           <button type="button" data-camera-mode="attached">Attached</button>
         </div>
-        <label class="polyviewer-camera-target">Target <select data-camera-target></select></label>
       </div>
       <button class="polyviewer-reset-camera" type="button">Reset Camera to Normal <kbd>R</kbd></button>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
-      <div class="polyviewer-replays">
-        <span class="polyviewer-replay-count">Replays: 0</span>
-        <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
-      </div>
-      <label class="polyviewer-replay-search">Find run <input type="search" placeholder="Name…" autocomplete="off"></label>
-      <section class="polyviewer-replay-list" aria-label="Replays"></section>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
         <label>Time <input type="number" min="0" step="0.001" inputmode="decimal" data-point-time></label>
@@ -77,6 +72,24 @@ export class EditorShell {
           <button type="button" data-point-action="delete">Delete</button>
         </div>
       </section>
+    `;
+    this.#rightStack = document.createElement("div");
+    this.#rightStack.className = "polyviewer-right-stack";
+    this.#replayPanel = document.createElement("aside");
+    this.#replayPanel.className = "polyviewer-replay-panel";
+    this.#replayPanel.innerHTML = `
+      <details>
+        <summary><span>Replays</span><span class="polyviewer-replay-count">0 runs</span></summary>
+        <div class="polyviewer-replay-panel-content">
+          <div class="polyviewer-replays">
+            <span>Replay players</span>
+            <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
+          </div>
+          <label class="polyviewer-camera-target">Camera target <select data-camera-target></select></label>
+          <label class="polyviewer-replay-search">Find run <input type="search" placeholder="Name…" autocomplete="off"></label>
+          <section class="polyviewer-replay-list" aria-label="Replay players" data-empty-label="No replay loaded"></section>
+        </div>
+      </details>
       <dialog class="polyviewer-replay-dialog">
         <form method="dialog">
           <strong>Add Replays</strong>
@@ -125,6 +138,7 @@ export class EditorShell {
           <div><dt>Clean Preview</dt><dd>F8</dd></div>
         </dl>
       </details>`;
+    this.#rightStack.append(this.#replayPanel, this.#shortcutSheet);
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
     renderButton.addEventListener("click", () => options.onOpenRender?.());
     this.element.querySelector(".polyviewer-reset-camera")?.addEventListener(
@@ -139,12 +153,12 @@ export class EditorShell {
     if (!pointEditor || !pointTime) throw new Error("Failed to construct Camera Point editor.");
     this.#pointEditor = pointEditor;
     this.#pointTime = pointTime;
-    const addReplayButton = this.element.querySelector<HTMLButtonElement>(".polyviewer-add-replay");
-    const replayCount = this.element.querySelector<HTMLElement>(".polyviewer-replay-count");
-    const replayDialog = this.element.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
-    const targetSelect = this.element.querySelector<HTMLSelectElement>("[data-camera-target]");
-    const replayList = this.element.querySelector<HTMLElement>(".polyviewer-replay-list");
-    const replaySearch = this.element.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
+    const addReplayButton = this.#replayPanel.querySelector<HTMLButtonElement>(".polyviewer-add-replay");
+    const replayCount = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-count");
+    const replayDialog = this.#replayPanel.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
+    const targetSelect = this.#replayPanel.querySelector<HTMLSelectElement>("[data-camera-target]");
+    const replayList = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-list");
+    const replaySearch = this.#replayPanel.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
     if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch) {
       throw new Error("Failed to construct replay import controls.");
     }
@@ -231,7 +245,7 @@ export class EditorShell {
       if (id) options.onRemoveReplay?.(id);
     });
     document.body.append(this.element);
-    document.body.append(this.#shortcutSheet);
+    document.body.append(this.#rightStack);
   }
 
   setSelectedCameraPoint(point: CameraKeyframe | null): void {
@@ -251,7 +265,7 @@ export class EditorShell {
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
     this.#addReplayButton.disabled = !connected || replays.length >= 20;
-    this.#replayCount.textContent = `Replays: ${replays.length}`;
+    this.#replayCount.textContent = formatRunCount(replays.length);
     if (sameReplaySummaries(this.#replays, replays)) return;
     this.#replays = replays.map((replay) => ({ ...replay }));
     const selectedTarget = this.#targetSelect.value;
@@ -273,7 +287,7 @@ export class EditorShell {
 
   update(status: FreeCameraStatus): void {
     this.element.classList.toggle("is-active", status.enabled);
-    this.#shortcutSheet.classList.toggle("is-active", status.enabled);
+    this.#rightStack.classList.toggle("is-active", status.enabled);
     this.toggleButton.innerHTML = status.enabled
       ? "Exit PolyViewer <kbd>F1</kbd>"
       : "Enter PolyViewer <kbd>F1</kbd>";
@@ -306,11 +320,18 @@ export class EditorShell {
       ? this.#replays.filter((replay) => replay.name.toLocaleLowerCase().includes(query))
       : this.#replays;
     this.#replayCount.textContent = query
-      ? `Replays: ${this.#replays.length} · ${visible.length} shown`
-      : `Replays: ${this.#replays.length}`;
+      ? `${visible.length}/${this.#replays.length} runs`
+      : formatRunCount(this.#replays.length);
     this.#replayList.replaceChildren(...visible.map((replay) => createReplayRow(replay)));
-    this.#replayList.classList.toggle("is-visible", this.#replays.length > 0);
+    this.#replayList.dataset.emptyLabel = this.#replays.length > 0
+      ? "No matching run"
+      : "No replay loaded";
+    this.#replayList.classList.toggle("is-visible", visible.length > 0);
   }
+}
+
+function formatRunCount(count: number): string {
+  return `${count} ${count === 1 ? "run" : "runs"}`;
 }
 
 function createReplayRow(replay: PolyViewerReplaySummary): HTMLElement {
