@@ -59,6 +59,7 @@ shell = new EditorShell({
   onReplayNameChange: (id, name) => replayBridge?.setReplayName(id, name),
   onReplayVisibilityChange: (id, visible) => replayBridge?.setReplayVisible(id, visible),
   onReplayOpacityChange: (id, opacity) => replayBridge?.setReplayOpacity(id, opacity),
+  onReplayMasterOpacityChange: (opacity) => replayBridge?.setAllReplayOpacity(opacity),
   onReplayNameTagVisibilityChange: (id, visible) => replayBridge?.setReplayNameTagVisible(id, visible),
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),

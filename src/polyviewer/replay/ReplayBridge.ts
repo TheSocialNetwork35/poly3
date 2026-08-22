@@ -135,6 +135,17 @@ export class ReplayBridge {
     this.#notify();
   }
 
+  setAllReplayOpacity(opacity: number): void {
+    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
+      throw new RangeError("Replay opacity must be between 0 and 1.");
+    }
+    const replay = this.#requireRuntimeReplay();
+    for (const entry of listRuntimeReplays(replay)) {
+      replay.setReplayOpacity(entry.id, opacity);
+    }
+    this.#notify();
+  }
+
   setReplayNameTagVisible(id: string, visible: boolean): void {
     const replay = this.#requireRuntimeReplay();
     if (typeof replay.setReplayNameTagVisible !== "function") {

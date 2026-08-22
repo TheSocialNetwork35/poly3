@@ -14,6 +14,7 @@ interface EditorShellOptions {
   onReplayNameChange?: (id: string, name: string) => void;
   onReplayVisibilityChange?: (id: string, visible: boolean) => void;
   onReplayOpacityChange?: (id: string, opacity: number) => void;
+  onReplayMasterOpacityChange?: (opacity: number) => void;
   onReplayNameTagVisibilityChange?: (id: string, visible: boolean) => void;
   onRemoveReplay?: (id: string) => void;
   onToggleCleanPreview?: () => void;
@@ -35,6 +36,10 @@ export class EditorShell {
   #targetSelect: HTMLSelectElement;
   #replayList: HTMLElement;
   #replaySearch: HTMLInputElement;
+  #masterOpacity: HTMLInputElement;
+  #masterOpacityValue: HTMLOutputElement;
+  #masterOpacityFrame = 0;
+  #applyingMasterOpacity = false;
   #replays: PolyViewerReplaySummary[] = [];
   #cleanPreviewButton: HTMLButtonElement;
   #renderButton: HTMLButtonElement;
@@ -86,6 +91,11 @@ export class EditorShell {
             <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
           </div>
           <label class="polyviewer-camera-target">Camera target <select data-camera-target></select></label>
+          <div class="polyviewer-master-opacity">
+            <div><strong>All cars opacity</strong><output>100%</output></div>
+            <input data-replay-master-opacity type="range" min="0" max="100" step="1" value="100" aria-label="Set opacity for all cars">
+            <small>Sets every car now. Individual sliders can still override it.</small>
+          </div>
           <label class="polyviewer-replay-search">Find run <input type="search" placeholder="Name…" autocomplete="off"></label>
           <section class="polyviewer-replay-list" aria-label="Replay players" data-empty-label="No replay loaded"></section>
         </div>
@@ -159,7 +169,9 @@ export class EditorShell {
     const targetSelect = this.#replayPanel.querySelector<HTMLSelectElement>("[data-camera-target]");
     const replayList = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-list");
     const replaySearch = this.#replayPanel.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
-    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch) {
+    const masterOpacity = this.#replayPanel.querySelector<HTMLInputElement>("[data-replay-master-opacity]");
+    const masterOpacityValue = this.#replayPanel.querySelector<HTMLOutputElement>(".polyviewer-master-opacity output");
+    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch || !masterOpacity || !masterOpacityValue) {
       throw new Error("Failed to construct replay import controls.");
     }
     this.#addReplayButton = addReplayButton;
@@ -168,7 +180,21 @@ export class EditorShell {
     this.#targetSelect = targetSelect;
     this.#replayList = replayList;
     this.#replaySearch = replaySearch;
+    this.#masterOpacity = masterOpacity;
+    this.#masterOpacityValue = masterOpacityValue;
     replaySearch.addEventListener("input", () => this.#renderReplayRows());
+    masterOpacity.addEventListener("input", () => {
+      this.#showMasterOpacityValue(Number(masterOpacity.value));
+      this.#previewMasterOpacityInRows(masterOpacity.value);
+      if (this.#masterOpacityFrame === 0) {
+        this.#masterOpacityFrame = requestAnimationFrame(() => this.#applyMasterOpacity(options));
+      }
+    });
+    masterOpacity.addEventListener("change", () => {
+      if (this.#masterOpacityFrame !== 0) cancelAnimationFrame(this.#masterOpacityFrame);
+      this.#masterOpacityFrame = 0;
+      this.#applyMasterOpacity(options);
+    });
     for (const button of this.#modeButtons) {
       button.addEventListener("click", () => {
         const mode = button.dataset.cameraMode as CameraMode | undefined;
@@ -265,9 +291,12 @@ export class EditorShell {
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
     this.#addReplayButton.disabled = !connected || replays.length >= 20;
+    this.#masterOpacity.disabled = !connected || replays.length === 0;
     this.#replayCount.textContent = formatRunCount(replays.length);
     if (sameReplaySummaries(this.#replays, replays)) return;
     this.#replays = replays.map((replay) => ({ ...replay }));
+    this.#syncMasterOpacity(replays);
+    if (this.#applyingMasterOpacity) return;
     const selectedTarget = this.#targetSelect.value;
     this.#targetSelect.replaceChildren(...replays.map((replay) => {
       const option = document.createElement("option");
@@ -327,6 +356,46 @@ export class EditorShell {
       ? "No matching run"
       : "No replay loaded";
     this.#replayList.classList.toggle("is-visible", visible.length > 0);
+  }
+
+  #applyMasterOpacity(options: EditorShellOptions): void {
+    this.#masterOpacityFrame = 0;
+    const percentage = Number(this.#masterOpacity.value);
+    if (!Number.isFinite(percentage)) return;
+    this.#applyingMasterOpacity = true;
+    try {
+      options.onReplayMasterOpacityChange?.(percentage / 100);
+    } finally {
+      this.#applyingMasterOpacity = false;
+    }
+  }
+
+  #previewMasterOpacityInRows(value: string): void {
+    for (const input of this.#replayList.querySelectorAll<HTMLInputElement>("[data-replay-opacity]")) {
+      input.value = value;
+      const output = input.closest(".polyviewer-opacity")?.querySelector<HTMLElement>("span");
+      if (output) output.textContent = `${value}%`;
+    }
+  }
+
+  #syncMasterOpacity(replays: PolyViewerReplaySummary[]): void {
+    if (replays.length === 0) {
+      this.#masterOpacity.value = "100";
+      this.#masterOpacityValue.textContent = "100%";
+      return;
+    }
+    const first = Math.round(replays[0]!.opacity * 100);
+    const uniform = replays.every((replay) => Math.round(replay.opacity * 100) === first);
+    if (uniform) {
+      this.#masterOpacity.value = String(first);
+      this.#showMasterOpacityValue(first);
+    } else {
+      this.#masterOpacityValue.textContent = "Mixed";
+    }
+  }
+
+  #showMasterOpacityValue(percentage: number): void {
+    this.#masterOpacityValue.textContent = `${Math.round(percentage)}%`;
   }
 }
 

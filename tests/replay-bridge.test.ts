@@ -178,6 +178,37 @@ describe("ReplayBridge", () => {
     replay.dispose();
   });
 
+  it("sets every current car opacity once while preserving later individual overrides", () => {
+    const methods = replayManagementMethods();
+    const summaries = [
+      { id: "main", name: "Main", visible: true, opacity: 1, nameTagVisible: false, removable: false },
+      { id: "replay-1", name: "Ghost", visible: false, opacity: 0.2, nameTagVisible: true, removable: true },
+    ];
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 2_000, loadedFrames: 2_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...methods,
+      listReplays: () => summaries,
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const setOpacity = vi.spyOn(runtimeReplay, "setReplayOpacity");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+
+    replay.setAllReplayOpacity(0.5);
+    replay.setReplayOpacity("main", 1);
+
+    expect(setOpacity.mock.calls).toEqual([
+      ["main", 0.5],
+      ["replay-1", 0.5],
+      ["main", 1],
+    ]);
+    expect(summaries[1]!.visible).toBe(false);
+    replay.dispose();
+  });
+
   it("adds a validated replay array with leaderboard names", () => {
     const runtimeReplay = {
       owner: {}, driver: null, durationFrames: 20_000, loadedFrames: 20_000, timeFrames: 0,
