@@ -331,6 +331,14 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   color: rgb(255 255 255 / 55%);
   font: 11px/1 system-ui, sans-serif;
 }
+.polyviewer-replay-performance {
+  margin: 7px 0 0;
+  color: rgb(116 208 145 / 78%);
+  font: 9px/1.25 system-ui, sans-serif;
+}
+.polyviewer-replay-performance[data-mode="balanced"] { color: rgb(255 209 107 / 82%); }
+.polyviewer-replay-performance[data-mode="crowd"],
+.polyviewer-replay-performance[data-mode="massive"] { color: rgb(255 170 101 / 86%); }
 .polyviewer-replay-search {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -397,6 +405,9 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 }
 .polyviewer-replay-list article {
   display: grid;
+  content-visibility: auto;
+  contain-intrinsic-size: 104px;
+  contain: layout style paint;
   grid-template-columns: minmax(80px, 1fr) auto;
   gap: 7px;
   padding: 9px 0;

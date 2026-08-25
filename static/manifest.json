@@ -1,0 +1,28 @@
+{
+  "name": "PolyViewer · PolyTrack 0.6.2",
+  "short_name": "PolyViewer",
+  "icons": [
+    {
+      "src": "/images/cover1920x1080.png",
+      "sizes": "1920x1080",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/cover512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "background_color": "#28346a",
+  "theme_color": "#28346a",
+  "start_url": "/",
+  "orientation": "landscape",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "display": "fullscreen"
+}

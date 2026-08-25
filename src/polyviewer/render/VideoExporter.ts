@@ -13,7 +13,7 @@ import {
 import type { ReplayBridge } from "../replay/ReplayBridge";
 import type { FrameRenderSettings } from "./DeterministicFrameRenderer";
 import { DeterministicFrameRenderer } from "./DeterministicFrameRenderer";
-import { captureNativeReplayAudio } from "./NativeAudioCapture";
+import { captureNativeReplayAudio, prepareNativeReplayAudio } from "./NativeAudioCapture";
 
 export interface VideoExportOptions {
   signal?: AbortSignal;
@@ -54,6 +54,21 @@ export class VideoExporter {
       throw new Error("This browser cannot encode video with WebCodecs. Use a current Chromium-based browser over HTTPS.");
     }
 
+    // Resume WebAudio before the first capability-check await consumes the
+    // Render button's user activation. A failed audio device must never block
+    // deterministic video export.
+    let audioPrepared = false;
+    if (options.includeAudio !== false) {
+      try {
+        audioPrepared = await prepareNativeReplayAudio(this.#audio);
+        if (!audioPrepared) options.onAudioWarning?.("PolyTrack sound is unavailable in this browser session.");
+      } catch (error) {
+        options.onAudioWarning?.(
+          error instanceof Error ? error.message : "The browser could not start PolyTrack sound.",
+        );
+      }
+    }
+
     const format = new Mp4OutputFormat({ fastStart: false });
     const codec = await selectCodec(format, settings.width, settings.height);
     if (!codec) {
@@ -61,7 +76,7 @@ export class VideoExporter {
     }
 
     let audioBuffer: AudioBuffer | null = null;
-    if (options.includeAudio !== false) {
+    if (options.includeAudio !== false && audioPrepared) {
       try {
         audioBuffer = await captureNativeReplayAudio(
           this.#audio,

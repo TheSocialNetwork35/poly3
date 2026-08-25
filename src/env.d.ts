@@ -43,6 +43,8 @@ declare global {
     listReplays?(): PolyViewerReplaySummary[];
     getCar?(id: string): PolyTrackCarTarget | null;
     getNativeCameraPose?(id: string): PolyTrackCameraPose | null;
+    getPerformanceStatus?(): PolyViewerReplayPerformanceStatus;
+    setPriorityReplay?(id: string): void;
     addReplay?(recordingString: string, name?: string, metadata?: PolyViewerReplayImportMetadata): PolyViewerReplaySummary;
     setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
@@ -70,6 +72,16 @@ declare global {
     opacity: number;
     nameTagVisible: boolean;
     removable: boolean;
+  }
+
+  interface PolyViewerReplayPerformanceStatus {
+    mode: "full" | "balanced" | "crowd" | "massive";
+    totalReplays: number;
+    visibleReplays: number;
+    historyBudget: number;
+    lightweightReplays: number;
+    readyReplays: number;
+    renderReady: boolean;
   }
 
   interface PolyTrackCameraPose {

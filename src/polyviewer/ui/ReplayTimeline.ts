@@ -103,8 +103,13 @@ export class ReplayTimeline {
         ? 0
         : Math.floor(status.loadedMicroseconds / status.durationMicroseconds * 100);
       this.#loadStatus.textContent = `Preparing real replay ${Math.max(0, Math.min(100, percent))}%`;
+    } else if (!status.performance.renderReady) {
+      this.#loadStatus.textContent = `Preparing cars ${status.performance.readyReplays}/${status.performance.totalReplays} · preview stays available`;
     } else {
-      this.#loadStatus.textContent = "Real PolyTrack replay connected";
+      const mode = status.performance.mode === "full"
+        ? "full quality"
+        : `${status.performance.mode} adaptive quality`;
+      this.#loadStatus.textContent = `${status.performance.totalReplays} real car${status.performance.totalReplays === 1 ? "" : "s"} · ${mode}`;
     }
   }
 

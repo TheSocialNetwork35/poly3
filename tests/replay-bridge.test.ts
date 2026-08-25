@@ -209,7 +209,7 @@ describe("ReplayBridge", () => {
     replay.dispose();
   });
 
-  it("adds a validated replay array with leaderboard names", () => {
+  it("adds a validated replay array with leaderboard names", async () => {
     const runtimeReplay = {
       owner: {}, driver: null, durationFrames: 20_000, loadedFrames: 20_000, timeFrames: 0,
       primaryCar: fakeCar, nativeCameraPose: null,
@@ -221,7 +221,7 @@ describe("ReplayBridge", () => {
       { replay: runtimeReplay } as unknown as PolyTrackBridge,
       new MasterTimeline(),
     );
-    replay.addReplays(JSON.stringify([
+    await replay.addReplays(JSON.stringify([
       { recording: "one", frames: 100, carStyle: "red" },
       { recording: "two", frames: 200, carStyle: "blue" },
     ]), JSON.stringify({ entries: [
@@ -234,6 +234,55 @@ describe("ReplayBridge", () => {
       { recording: "two", carStyle: "blue" },
     ]);
     expect(replay.timeline.durationMicroseconds).toBe(20_000_000);
+    replay.dispose();
+  });
+
+  it("imports beyond the old 20-car ceiling in responsive batches", async () => {
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 20_000, loadedFrames: 20_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...replayManagementMethods(),
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const addReplay = vi.spyOn(runtimeReplay, "addReplay");
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+    const recordings = Array.from({ length: 24 }, (_, index) => ({
+      recording: `recording-${index}-abcdefghijklmnopqrstuvwxyz0123456789`,
+    }));
+
+    await replay.addReplays(JSON.stringify(recordings));
+
+    expect(addReplay).toHaveBeenCalledTimes(24);
+    replay.dispose();
+  });
+
+  it("does not rebuild hundreds of replay summary objects on every animation frame", () => {
+    let driver: PolyTrackReplayDriver | null = null;
+    const methods = replayManagementMethods();
+    const listReplays = vi.fn(methods.listReplays);
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 2_000, loadedFrames: 2_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...methods,
+      listReplays,
+      setDriver(value: PolyTrackReplayDriver | null) { driver = value; },
+      setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+    replay.setActive(true);
+    replay.play();
+    const callsBeforeFrames = listReplays.mock.calls.length;
+    const activeDriver = driver as unknown as PolyTrackReplayDriver;
+
+    for (let frame = 0; frame < 120; frame += 1) activeDriver(1 / 60, 2_000, 2_000);
+
+    expect(listReplays).toHaveBeenCalledTimes(callsBeforeFrames);
     replay.dispose();
   });
 

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const requiredFiles = [
   "dist/index.html",
+  "dist/manifest.json",
   "dist/main.bundle.js",
   "dist/simulation_worker.bundle.js",
   "dist/models/car.glb",
@@ -11,6 +12,7 @@ const requiredFiles = [
   "dist/lib/draco/draco_decoder.wasm",
   "dist/lib/polytrack_physics.js",
   "dist/polytrack_physics.wasm",
+  "dist/polyviewer-audio-capture-worklet.js",
   "dist/tracks/official/summer1.track",
   "dist/_headers",
 ];
@@ -34,13 +36,20 @@ if (!bundle.includes("nativeCameraPose={position:")) {
 if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.deserialize(pvRecordingString.trim())")) {
   throw new Error("The production bundle does not contain the verified native replay importer.");
 }
+if (!bundle.includes("pvMaxReplays=500") || !bundle.includes("pvReplay.getPerformanceStatus=")
+  || !bundle.includes("polyviewerHistoryEnabled")) {
+  throw new Error("The production bundle does not contain adaptive large-replay evaluation.");
+}
+if (bundle.includes("supports up to 20 simultaneous replays")) {
+  throw new Error("The removed 20-car runtime ceiling remains in the production bundle.");
+}
 if (!bundle.includes("pvRequestedFrames=pvReplay.durationFrames") || bundle.includes("durationOverrideFrames")) {
   throw new Error("Imported leaderboard frame metadata can still alter the authoritative shot duration.");
 }
 if (bundle.includes("pvReplay.setReplayOffset=") || bundle.includes("polyviewerOffsetFrames")) {
   throw new Error("Removed replay offset controls remain in the production runtime.");
 }
-if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvEntry.car.update(.001)")) {
+if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvApplyEntry(pvEntry,pvFrame,.001)")) {
   throw new Error("The production bundle does not contain exact native frame evaluation.");
 }
 if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("pvReplay.setReplayNameTagVisible=")) {

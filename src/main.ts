@@ -50,11 +50,12 @@ shell = new EditorShell({
     replayBridge?.addReplay(recordingString, name);
   },
   onAddReplays: (recordingsValue, leaderboardValue) => {
-    replayBridge?.addReplays(recordingsValue, leaderboardValue);
+    return replayBridge?.addReplays(recordingsValue, leaderboardValue);
   },
   onTargetReplayChange: (id) => {
     cameraEditAuthority.beginManualEdit();
     cameraController?.setTargetReplay(id);
+    replayBridge?.setPriorityReplay(id);
   },
   onReplayNameChange: (id, name) => replayBridge?.setReplayName(id, name),
   onReplayVisibilityChange: (id, visible) => replayBridge?.setReplayVisible(id, visible),
@@ -74,6 +75,7 @@ let replayWasConnected = false;
 let replayDurationMicroseconds = 0;
 let nativeCameraWasAvailable = false;
 let sceneEvaluator: SceneEvaluator | null = null;
+let replayRevision = -1;
 const replayTimeline = new ReplayTimeline({
   onTogglePlayback: () => {
     cameraEditAuthority.resumePath();
@@ -139,10 +141,15 @@ void waitForPolyTrackBridge()
     replayBridge = new ReplayBridge(bridge, masterTimeline, {
       onChange: (status) => {
         replayTimeline.update(status);
-        shell.setReplays(status.connected, status.replays);
+        if (status.replayRevision !== replayRevision) {
+          shell.setReplays(status.connected, status.replays);
+          replayRevision = status.replayRevision;
+        }
+        shell.setPerformanceStatus(status.performance);
         shell.setRenderAvailable(
           status.connected && status.durationMicroseconds > 0
-          && status.loadedMicroseconds >= status.durationMicroseconds,
+          && status.loadedMicroseconds >= status.durationMicroseconds
+          && status.performance.renderReady,
         );
         if (status.active && cameraEditAuthority.shouldApplyPath(status.playing)) {
           sceneEvaluator?.evaluatePreview(status.timeMicroseconds);
@@ -164,6 +171,7 @@ void waitForPolyTrackBridge()
       getNativeCameraPose: (id) => replayBridge?.getNativeCameraPose(id) ?? null,
       onChange: (status) => {
         shell.update(status);
+        replayBridge?.setPriorityReplay(status.targetReplayId);
         if (!status.enabled) cleanPreview.setEnabled(false);
         replayBridge?.setActive(status.enabled);
         shortcuts.setActive(status.enabled);

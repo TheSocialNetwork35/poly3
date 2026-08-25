@@ -1,5 +1,6 @@
 import type { CameraMode, FreeCameraStatus } from "../camera/FreeCameraController";
 import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
+import { MAX_REPLAY_CARS } from "../replay/ReplayBridge";
 
 interface EditorShellOptions {
   onCameraModeChange?: (mode: CameraMode) => void;
@@ -9,7 +10,7 @@ interface EditorShellOptions {
   onDuplicateCameraPoint?: (id: string) => void;
   onDeleteCameraPoint?: (id: string) => void;
   onAddReplay?: (recordingString: string, name?: string) => void;
-  onAddReplays?: (recordingsValue: string, leaderboardValue?: string) => void;
+  onAddReplays?: (recordingsValue: string, leaderboardValue?: string) => void | Promise<unknown>;
   onTargetReplayChange?: (id: string) => void;
   onReplayNameChange?: (id: string, name: string) => void;
   onReplayVisibilityChange?: (id: string, visible: boolean) => void;
@@ -46,6 +47,8 @@ export class EditorShell {
   #shortcutSheet: HTMLElement;
   #rightStack: HTMLElement;
   #replayPanel: HTMLElement;
+  #performanceStatus: HTMLElement;
+  #performanceSignature = "";
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -90,6 +93,7 @@ export class EditorShell {
             <span>Replay players</span>
             <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
           </div>
+          <p class="polyviewer-replay-performance" aria-live="polite">Adaptive quality · Full</p>
           <label class="polyviewer-camera-target">Camera target <select data-camera-target></select></label>
           <div class="polyviewer-master-opacity">
             <div><strong>All cars opacity</strong><output>100%</output></div>
@@ -171,7 +175,8 @@ export class EditorShell {
     const replaySearch = this.#replayPanel.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
     const masterOpacity = this.#replayPanel.querySelector<HTMLInputElement>("[data-replay-master-opacity]");
     const masterOpacityValue = this.#replayPanel.querySelector<HTMLOutputElement>(".polyviewer-master-opacity output");
-    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch || !masterOpacity || !masterOpacityValue) {
+    const performanceStatus = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-performance");
+    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch || !masterOpacity || !masterOpacityValue || !performanceStatus) {
       throw new Error("Failed to construct replay import controls.");
     }
     this.#addReplayButton = addReplayButton;
@@ -182,6 +187,7 @@ export class EditorShell {
     this.#replaySearch = replaySearch;
     this.#masterOpacity = masterOpacity;
     this.#masterOpacityValue = masterOpacityValue;
+    this.#performanceStatus = performanceStatus;
     replaySearch.addEventListener("input", () => this.#renderReplayRows());
     masterOpacity.addEventListener("input", () => {
       this.#showMasterOpacityValue(Number(masterOpacity.value));
@@ -228,7 +234,7 @@ export class EditorShell {
     replayDialog.querySelector("[data-replay-cancel]")?.addEventListener("click", () => {
       replayDialog.close();
     });
-    replayDialog.querySelector("form")?.addEventListener("submit", (event) => {
+    replayDialog.querySelector("form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget as HTMLFormElement;
       const data = new FormData(form);
@@ -241,8 +247,13 @@ export class EditorShell {
         return;
       }
       try {
+        const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (submit) {
+          submit.disabled = true;
+          submit.textContent = "Adding…";
+        }
         if (recording.startsWith("[") || leaderboard) {
-          options.onAddReplays?.(recording, leaderboard || undefined);
+          await options.onAddReplays?.(recording, leaderboard || undefined);
         } else {
           options.onAddReplay?.(recording, name || undefined);
         }
@@ -250,6 +261,12 @@ export class EditorShell {
         replayDialog.close();
       } catch (caught) {
         if (error) error.textContent = caught instanceof Error ? caught.message : "The replay could not be added.";
+      } finally {
+        const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = "Add Replays";
+        }
       }
     });
     targetSelect.addEventListener("change", () => options.onTargetReplayChange?.(targetSelect.value));
@@ -289,8 +306,28 @@ export class EditorShell {
     this.#renderButton.disabled = !available;
   }
 
+  setPerformanceStatus(status: PolyViewerReplayPerformanceStatus): void {
+    const signature = `${status.mode}:${status.totalReplays}:${status.readyReplays}:${status.historyBudget}`;
+    if (signature === this.#performanceSignature) return;
+    this.#performanceSignature = signature;
+    const label = {
+      full: "Full",
+      balanced: "Balanced",
+      crowd: "Crowd",
+      massive: "Massive",
+    }[status.mode];
+    const preparing = status.readyReplays < status.totalReplays
+      ? ` · preparing ${status.readyReplays}/${status.totalReplays}`
+      : "";
+    this.#performanceStatus.textContent = `Adaptive quality · ${label}${preparing}`;
+    this.#performanceStatus.dataset.mode = status.mode;
+    this.#performanceStatus.title = status.mode === "full"
+      ? "All cars keep full transient visual history."
+      : `${status.historyBudget} priority cars keep full visual history; every car still uses the real PolyTrack model and replay state.`;
+  }
+
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
-    this.#addReplayButton.disabled = !connected || replays.length >= 20;
+    this.#addReplayButton.disabled = !connected || replays.length >= MAX_REPLAY_CARS;
     this.#masterOpacity.disabled = !connected || replays.length === 0;
     this.#replayCount.textContent = formatRunCount(replays.length);
     if (sameReplaySummaries(this.#replays, replays)) return;

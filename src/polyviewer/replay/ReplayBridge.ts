@@ -2,6 +2,7 @@ import { MasterTimeline } from "../timeline/MasterTimeline";
 import { parseReplayImport, parseReplayImports, type ReplayImportPayload } from "./ReplayImport";
 
 const MICROSECONDS_PER_FRAME = 1_000;
+export const MAX_REPLAY_CARS = 500;
 
 interface ReplayBridgeOptions {
   onChange?: (status: ReplayBridgeStatus) => void;
@@ -16,6 +17,8 @@ export interface ReplayBridgeStatus {
   loadedMicroseconds: number;
   nativeCameraAvailable: boolean;
   replays: PolyViewerReplaySummary[];
+  replayRevision: number;
+  performance: PolyViewerReplayPerformanceStatus;
 }
 
 export interface ReplayEditorState {
@@ -35,6 +38,10 @@ export class ReplayBridge {
   #active = false;
   #onChange?: (status: ReplayBridgeStatus) => void;
   #lifecycleMonitor: ReturnType<typeof setInterval>;
+  #replays: PolyViewerReplaySummary[] = [];
+  #replayRevision = 0;
+  #performance: PolyViewerReplayPerformanceStatus = emptyPerformanceStatus();
+  #priorityReplayId = "main";
 
   constructor(bridge: PolyTrackBridge, timeline: MasterTimeline, options: ReplayBridgeOptions = {}) {
     this.#bridge = bridge;
@@ -46,7 +53,10 @@ export class ReplayBridge {
     // Replay previews can be constructed and disposed during the same loading
     // burst. The events are primary; this low-frequency identity check makes
     // the adapter robust if a lifecycle event predates PolyViewer startup.
-    this.#lifecycleMonitor = setInterval(() => this.#synchronizeRuntimeReplay(), 250);
+    this.#lifecycleMonitor = setInterval(() => {
+      const changed = this.#synchronizeRuntimeReplay();
+      if (!changed && this.#refreshPerformance()) this.#notify();
+    }, 250);
   }
 
   get connected(): boolean {
@@ -80,7 +90,7 @@ export class ReplayBridge {
   }
 
   get replays(): PolyViewerReplaySummary[] {
-    return listRuntimeReplays(this.#runtimeReplay);
+    return this.#replays;
   }
 
   addReplay(recordingString: string, name?: string): PolyViewerReplaySummary {
@@ -92,46 +102,66 @@ export class ReplayBridge {
     const payload = parseReplayImport(recordingString);
     this.timeline.pause();
     const added = this.#addParsedReplay(replay, payload, name);
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#notify();
     return added;
   }
 
-  addReplays(recordingsValue: string, leaderboardValue = ""): PolyViewerReplaySummary[] {
+  async addReplays(recordingsValue: string, leaderboardValue = ""): Promise<PolyViewerReplaySummary[]> {
     const replay = this.#runtimeReplay;
     if (!replay || typeof replay.addReplay !== "function") {
       throw new Error("Open a PolyTrack replay and reload once if the runtime was just updated.");
     }
     const imports = parseReplayImports(recordingsValue, leaderboardValue);
-    const available = 20 - listRuntimeReplays(replay).length;
+    const available = MAX_REPLAY_CARS - this.#replays.length;
     if (imports.length > available) {
-      throw new Error(`Only ${available} additional replay${available === 1 ? "" : "s"} fit within the 20-car limit.`);
+      throw new Error(`This performance stage supports up to ${MAX_REPLAY_CARS} cars; ${Math.max(0, available)} slots remain.`);
     }
     this.timeline.pause();
     const added: PolyViewerReplaySummary[] = [];
     try {
-      for (const item of imports) {
+      for (let index = 0; index < imports.length; index += 1) {
+        const item = imports[index]!;
         added.push(this.#addParsedReplay(replay, item.payload, item.name));
+        // Car construction clones native materials and registers a simulation
+        // job. Yield in small batches so importing hundreds of runs never
+        // monopolizes the main thread for one enormous task.
+        if ((index + 1) % 4 === 0 && index + 1 < imports.length) {
+          this.#refreshReplays();
+          this.#refreshPerformance();
+          this.#notify();
+          await yieldToBrowser();
+        }
       }
     } catch (error) {
       for (const entry of added.reverse()) replay.removeReplay(entry.id);
+      this.#refreshReplays();
+      this.#refreshPerformance();
       throw error;
     }
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#notify();
     return added;
   }
 
   setReplayName(id: string, name: string): void {
     this.#requireRuntimeReplay().setReplayName(id, name);
+    this.#refreshReplays();
     this.#notify();
   }
 
   setReplayVisible(id: string, visible: boolean): void {
     this.#requireRuntimeReplay().setReplayVisible(id, visible);
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#notify();
   }
 
   setReplayOpacity(id: string, opacity: number): void {
     this.#requireRuntimeReplay().setReplayOpacity(id, opacity);
+    this.#refreshReplays();
     this.#notify();
   }
 
@@ -143,6 +173,7 @@ export class ReplayBridge {
     for (const entry of listRuntimeReplays(replay)) {
       replay.setReplayOpacity(entry.id, opacity);
     }
+    this.#refreshReplays();
     this.#notify();
   }
 
@@ -152,13 +183,25 @@ export class ReplayBridge {
       throw new Error("Reload once to enable replay name labels.");
     }
     replay.setReplayNameTagVisible(id, visible);
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#notify();
   }
 
   removeReplay(id: string): void {
     this.timeline.pause();
     this.#requireRuntimeReplay().removeReplay(id);
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#notify();
+  }
+
+  setPriorityReplay(id: string): void {
+    if (!id || id === this.#priorityReplayId) return;
+    this.#priorityReplayId = id;
+    const replay = this.#runtimeReplay;
+    replay?.setPriorityReplay?.(id);
+    if (this.#refreshPerformance()) this.#notify();
   }
 
   evaluateExactFrame(timeMicroseconds: number, advanceVisuals: boolean): void {
@@ -257,9 +300,9 @@ export class ReplayBridge {
     };
   };
 
-  #synchronizeRuntimeReplay(): void {
+  #synchronizeRuntimeReplay(): boolean {
     const next = this.#bridge.replay;
-    if (next === this.#runtimeReplay) return;
+    if (next === this.#runtimeReplay) return false;
     this.#detachRuntimeReplay();
     this.#runtimeReplay = next;
     if (next) {
@@ -267,9 +310,13 @@ export class ReplayBridge {
       this.timeline.seekMicroseconds(
         Math.min(next.timeFrames, next.loadedFrames) * MICROSECONDS_PER_FRAME,
       );
+      next.setPriorityReplay?.(this.#priorityReplayId);
     }
+    this.#refreshReplays();
+    this.#refreshPerformance();
     this.#applyDriverState();
     this.#notify();
+    return true;
   }
 
   #applyDriverState(): void {
@@ -288,6 +335,8 @@ export class ReplayBridge {
     if (!this.#runtimeReplay) return;
     this.#runtimeReplay.setDriver(null);
     this.#runtimeReplay = null;
+    this.#refreshReplays();
+    this.#refreshPerformance();
   }
 
   #onReplayLifecycle = (): void => {
@@ -309,8 +358,24 @@ export class ReplayBridge {
       durationMicroseconds: this.timeline.durationMicroseconds,
       loadedMicroseconds: (replay?.loadedFrames ?? 0) * MICROSECONDS_PER_FRAME,
       nativeCameraAvailable: replay?.nativeCameraPose !== null && replay?.nativeCameraPose !== undefined,
-      replays: listRuntimeReplays(replay),
+      replays: this.#replays,
+      replayRevision: this.#replayRevision,
+      performance: this.#performance,
     });
+  }
+
+  #refreshReplays(): void {
+    const next = listRuntimeReplays(this.#runtimeReplay);
+    if (sameReplaySummaries(this.#replays, next)) return;
+    this.#replays = next;
+    this.#replayRevision += 1;
+  }
+
+  #refreshPerformance(): boolean {
+    const next = this.#runtimeReplay?.getPerformanceStatus?.() ?? emptyPerformanceStatus(this.#replays.length);
+    if (samePerformanceStatus(this.#performance, next)) return false;
+    this.#performance = { ...next };
+    return true;
   }
 
   #addParsedReplay(
@@ -327,6 +392,51 @@ export class ReplayBridge {
     if (payload.verifiedState !== undefined) runtimeMetadata.verifiedState = payload.verifiedState;
     return replay.addReplay(payload.recording, name, runtimeMetadata);
   }
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function emptyPerformanceStatus(totalReplays = 0): PolyViewerReplayPerformanceStatus {
+  return {
+    mode: "full",
+    totalReplays,
+    visibleReplays: totalReplays,
+    historyBudget: totalReplays,
+    lightweightReplays: 0,
+    readyReplays: totalReplays,
+    renderReady: totalReplays > 0,
+  };
+}
+
+function samePerformanceStatus(
+  left: PolyViewerReplayPerformanceStatus,
+  right: PolyViewerReplayPerformanceStatus,
+): boolean {
+  return left.mode === right.mode
+    && left.totalReplays === right.totalReplays
+    && left.visibleReplays === right.visibleReplays
+    && left.historyBudget === right.historyBudget
+    && left.lightweightReplays === right.lightweightReplays
+    && left.readyReplays === right.readyReplays
+    && left.renderReady === right.renderReady;
+}
+
+function sameReplaySummaries(
+  left: readonly PolyViewerReplaySummary[],
+  right: readonly PolyViewerReplaySummary[],
+): boolean {
+  return left.length === right.length && left.every((entry, index) => {
+    const candidate = right[index];
+    return candidate !== undefined
+      && entry.id === candidate.id
+      && entry.name === candidate.name
+      && entry.visible === candidate.visible
+      && entry.opacity === candidate.opacity
+      && entry.nameTagVisible === candidate.nameTagVisible
+      && entry.removable === candidate.removable;
+  });
 }
 
 function listRuntimeReplays(replay: PolyTrackReplayRuntimeBridge | null): PolyViewerReplaySummary[] {
