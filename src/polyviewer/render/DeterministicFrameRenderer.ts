@@ -46,6 +46,17 @@ export class DeterministicFrameRenderer {
       if (options.signal?.aborted) throw new DOMException("Rendering cancelled.", "AbortError");
       this.#sceneEvaluator.evaluateRenderFrame(0, false);
       if (settings.startMicroseconds > 0) {
+        // Rebuild stateful visuals at the selected output cadence. Each call
+        // still visits every exact worker state internally, while the expensive
+        // native Car.update runs once per would-be video frame just like normal
+        // forward playback. This preserves skid/particle history without doing
+        // one complete visual update for every replay millisecond.
+        for (let preRollIndex = 1; ; preRollIndex += 1) {
+          if (options.signal?.aborted) throw new DOMException("Rendering cancelled.", "AbortError");
+          const preRollTimestamp = frameTimeMicroseconds(preRollIndex, 0, settings.fps);
+          if (preRollTimestamp >= settings.startMicroseconds) break;
+          this.#sceneEvaluator.evaluateRenderFrame(preRollTimestamp, true);
+        }
         this.#sceneEvaluator.evaluateRenderFrame(settings.startMicroseconds, true);
       }
       for (let index = 0; index < total; index += 1) {

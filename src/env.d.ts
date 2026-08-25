@@ -4,6 +4,7 @@ declare global {
   interface Window {
     __POLYTRACK_062__?: PolyTrackBridge;
     __POLYVIEWER_INPUT_ACTIVE__: boolean;
+    __POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?: () => PolyViewerPackedReplayStore;
   }
 
   interface PolyTrackBridge {
@@ -75,13 +76,20 @@ declare global {
   }
 
   interface PolyViewerReplayPerformanceStatus {
-    mode: "full" | "balanced" | "crowd" | "massive";
+    quality: "full";
     totalReplays: number;
     visibleReplays: number;
-    historyBudget: number;
-    lightweightReplays: number;
+    packedBytes: number;
     readyReplays: number;
     renderReady: boolean;
+  }
+
+  interface PolyViewerPackedReplayStore {
+    readonly lastFrame: number;
+    readonly packedBytes: number;
+    push(state: object): void;
+    pushPacked(bytes: Uint8Array): void;
+    getFrame(frame: number): object | null;
   }
 
   interface PolyTrackCameraPose {

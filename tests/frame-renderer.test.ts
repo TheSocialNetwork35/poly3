@@ -24,6 +24,7 @@ describe("DeterministicFrameRenderer", () => {
 
     expect(scene.evaluateRenderFrame.mock.calls).toEqual([
       [0, false],
+      [500_000, true],
       [1_000_000, true],
       [1_500_000, true],
     ]);

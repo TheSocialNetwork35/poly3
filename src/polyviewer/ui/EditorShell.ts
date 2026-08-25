@@ -93,7 +93,7 @@ export class EditorShell {
             <span>Replay players</span>
             <button class="polyviewer-add-replay" type="button">＋ Add Replay</button>
           </div>
-          <p class="polyviewer-replay-performance" aria-live="polite">Adaptive quality · Full</p>
+          <p class="polyviewer-replay-performance" aria-live="polite">Full quality · lossless replay cache</p>
           <label class="polyviewer-camera-target">Camera target <select data-camera-target></select></label>
           <div class="polyviewer-master-opacity">
             <div><strong>All cars opacity</strong><output>100%</output></div>
@@ -307,23 +307,17 @@ export class EditorShell {
   }
 
   setPerformanceStatus(status: PolyViewerReplayPerformanceStatus): void {
-    const signature = `${status.mode}:${status.totalReplays}:${status.readyReplays}:${status.historyBudget}`;
+    const packedMegabytes = status.packedBytes / (1024 * 1024);
+    const signature = `${status.quality}:${status.totalReplays}:${status.readyReplays}:${packedMegabytes.toFixed(1)}`;
     if (signature === this.#performanceSignature) return;
     this.#performanceSignature = signature;
-    const label = {
-      full: "Full",
-      balanced: "Balanced",
-      crowd: "Crowd",
-      massive: "Massive",
-    }[status.mode];
     const preparing = status.readyReplays < status.totalReplays
       ? ` · preparing ${status.readyReplays}/${status.totalReplays}`
       : "";
-    this.#performanceStatus.textContent = `Adaptive quality · ${label}${preparing}`;
-    this.#performanceStatus.dataset.mode = status.mode;
-    this.#performanceStatus.title = status.mode === "full"
-      ? "All cars keep full transient visual history."
-      : `${status.historyBudget} priority cars keep full visual history; every car still uses the real PolyTrack model and replay state.`;
+    const storage = status.packedBytes > 0 ? ` · ${formatStorageSize(status.packedBytes)} replay cache` : "";
+    this.#performanceStatus.textContent = `Full quality${storage}${preparing}`;
+    this.#performanceStatus.dataset.mode = "full";
+    this.#performanceStatus.title = "Every visible car keeps the complete native PolyTrack model, shadows, particles, skidmarks, wheels, materials, and exact replay history.";
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
@@ -434,6 +428,11 @@ export class EditorShell {
   #showMasterOpacityValue(percentage: number): void {
     this.#masterOpacityValue.textContent = `${Math.round(percentage)}%`;
   }
+}
+
+function formatStorageSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatRunCount(count: number): string {

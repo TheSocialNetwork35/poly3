@@ -7,11 +7,14 @@ import { CleanPreviewController } from "./polyviewer/preview/CleanPreviewControl
 import { DeterministicFrameRenderer } from "./polyviewer/render/DeterministicFrameRenderer";
 import { VideoExporter } from "./polyviewer/render/VideoExporter";
 import { ReplayBridge } from "./polyviewer/replay/ReplayBridge";
+import { installPackedReplayStoreFactory } from "./polyviewer/replay/PackedReplayStore";
 import { SceneEvaluator } from "./polyviewer/scene/SceneEvaluator";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 import { RenderPanel } from "./polyviewer/ui/RenderPanel";
+
+installPackedReplayStoreFactory();
 
 const masterTimeline = new MasterTimeline();
 const cameraPoints = new CameraKeyframeStore();

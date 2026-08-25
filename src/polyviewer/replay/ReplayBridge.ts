@@ -400,11 +400,10 @@ function yieldToBrowser(): Promise<void> {
 
 function emptyPerformanceStatus(totalReplays = 0): PolyViewerReplayPerformanceStatus {
   return {
-    mode: "full",
+    quality: "full",
     totalReplays,
     visibleReplays: totalReplays,
-    historyBudget: totalReplays,
-    lightweightReplays: 0,
+    packedBytes: 0,
     readyReplays: totalReplays,
     renderReady: totalReplays > 0,
   };
@@ -414,11 +413,10 @@ function samePerformanceStatus(
   left: PolyViewerReplayPerformanceStatus,
   right: PolyViewerReplayPerformanceStatus,
 ): boolean {
-  return left.mode === right.mode
+  return left.quality === right.quality
     && left.totalReplays === right.totalReplays
     && left.visibleReplays === right.visibleReplays
-    && left.historyBudget === right.historyBudget
-    && left.lightweightReplays === right.lightweightReplays
+    && left.packedBytes === right.packedBytes
     && left.readyReplays === right.readyReplays
     && left.renderReady === right.renderReady;
 }

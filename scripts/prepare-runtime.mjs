@@ -27,47 +27,37 @@ const nativeCameraUpdateReplacement = 'const pvDrivenReplay=window.__POLYTRACK_0
 const replayLoadedFramesAnchor = 'let t=1/0;for(const e of(0,R.gn)(this,jp,"f"))t=Math.min(t,e.replay.getLastFrame().numberOfFrames);';
 const replayLoadedFramesReplacement = 'const pvDrivenLoad=window.__POLYTRACK_062__?.replay;let t=pvDrivenLoad?.owner===this&&"function"==typeof pvDrivenLoad.driver?pvDrivenLoad.loadedFrames:1/0;if(!(pvDrivenLoad?.owner===this&&"function"==typeof pvDrivenLoad.driver))for(const e of(0,R.gn)(this,jp,"f"))t=Math.min(t,e.replay.getLastFrame().numberOfFrames);';
 const replayApplyAnchor = 'lg=function(e){for(const t of(0,R.gn)(this,jp,"f"))if(t.car.getTime().numberOfFrames!=e){const n=t.replay.getFrame(e);null!=n&&t.car.setCarState(n,n.frames!=t.car.getTime().numberOfFrames&&n.frames!=t.car.getTime().numberOfFrames+1)}};';
-const replayApplyReplacement = 'lg=function(e){const t=window.__POLYTRACK_062__?.replay;for(const n of(0,R.gn)(this,jp,"f")){if(t?.owner===this&&"function"==typeof t.driver){if(n.polyviewerVisible===!1&&n.polyviewerId!==t.priorityReplayId)continue;if(e!==t.requestedFrame&&n.polyviewerHistoryEnabled!==!0)continue}const i=Math.min(e,n.replay.getLastFrame().numberOfFrames);if(n.car.getTime().numberOfFrames!=i){const e=n.replay.getFrame(i);null!=e&&n.car.setCarState(e,e.frames!=n.car.getTime().numberOfFrames&&e.frames!=n.car.getTime().numberOfFrames+1)}}};';
+const replayApplyReplacement = 'lg=function(e){const t=window.__POLYTRACK_062__?.replay;for(const n of(0,R.gn)(this,jp,"f")){if(t?.owner===this&&"function"==typeof t.driver&&n.polyviewerVisible===!1&&n.polyviewerId!==t.priorityReplayId)continue;const i=Math.min(e,n.replay.getLastFrame().numberOfFrames);if(n.car.getTime().numberOfFrames!=i){const e=n.replay.getFrame(i);null!=e&&n.car.setCarState(e,e.frames!=n.car.getTime().numberOfFrames&&e.frames!=n.car.getTime().numberOfFrames+1)}}};';
+
+const simulationStateDispatchAnchor = 'case o.UpdateResult:{const e=t.carStateBuffers;for(const t of e){const e=new Uint8Array(t),n=e[0]|e[1]<<8|e[2]<<16|e[3]<<24,i=(0,r.gn)(this,p,"f").get(n);if(null!=i){i(m.VO(e.subarray(4)).carState)}}break';
+const simulationStateDispatchReplacement = 'case o.UpdateResult:{const e=t.carStateBuffers;for(const t of e){const e=new Uint8Array(t),n=e[0]|e[1]<<8|e[2]<<16|e[3]<<24,i=(0,r.gn)(this,p,"f").get(n);if(null!=i){const t=e.subarray(4);i.polyviewerPacked===!0?i(t):i(m.VO(t).carState)}}break';
 
 const carVisibilityAnchor = 'setVisible(e){(0,l.gn)(this,me,"f").visible=e}getCarState(){';
-const carVisibilityReplacement = 'setVisible(e){this.polyviewerVisible=!!e,(0,l.gn)(this,me,"f").visible=e,e||(0,l.gn)(this,Ne,"f")?.clear();if(!e){for(const e of(0,l.gn)(this,Pe,"f"))e.clear();null!=(0,l.gn)(this,ve,"f")&&((0,l.gn)(this,ve,"f").visible=!1)}}polyviewerSetAdaptiveQuality(e,t){this.polyviewerEffectsEnabled=!!e;if(!e){(0,l.gn)(this,Ne,"f")?.clear();for(const e of(0,l.gn)(this,Pe,"f"))e.clear()}(0,l.gn)(this,me,"f").traverse((e=>{"castShadow"in e&&(void 0===e.polyviewerOriginalCastShadow&&(e.polyviewerOriginalCastShadow=e.castShadow),e.castShadow=t?!1:e.polyviewerOriginalCastShadow),"receiveShadow"in e&&(void 0===e.polyviewerOriginalReceiveShadow&&(e.polyviewerOriginalReceiveShadow=e.receiveShadow),e.receiveShadow=t?!1:e.polyviewerOriginalReceiveShadow)}))}polyviewerRefreshNameTag(){const e=(0,l.gn)(this,ve,"f");if(null!=e){const t=this.getPosition(),n=new c.Pq0(0,1,0).applyQuaternion(this.getQuaternion());e.position.copy(t.clone().addScaledVector(n,1.75));const i=e.position.distanceToSquared((0,l.gn)(this,ge,"f").camera.position);e.visible=this.polyviewerVisible!==!1&&this.polyviewerNameTagEnabled===!0&&(0,l.gn)(this,te,"f").hasStarted&&i>=6.25&&i<=2500,e.visible&&e.lookAt((0,l.gn)(this,ge,"f").camera.position)}}getCarState(){';
+const carVisibilityReplacement = 'setVisible(e){this.polyviewerVisible=!!e,(0,l.gn)(this,me,"f").visible=e,e||(0,l.gn)(this,Ne,"f")?.clear();if(!e){for(const e of(0,l.gn)(this,Pe,"f"))e.clear();null!=(0,l.gn)(this,ve,"f")&&((0,l.gn)(this,ve,"f").visible=!1)}}polyviewerRefreshNameTag(){const e=(0,l.gn)(this,ve,"f");if(null!=e){const t=this.getPosition(),n=new c.Pq0(0,1,0).applyQuaternion(this.getQuaternion());e.position.copy(t.clone().addScaledVector(n,1.75));const i=e.position.distanceToSquared((0,l.gn)(this,ge,"f").camera.position);e.visible=this.polyviewerVisible!==!1&&this.polyviewerNameTagEnabled===!0&&(0,l.gn)(this,te,"f").hasStarted&&i>=6.25&&i<=2500,e.visible&&e.lookAt((0,l.gn)(this,ge,"f").camera.position)}}getCarState(){';
 const nameTagVisibilityAnchor = '.visible=(0,l.gn)(this,te,"f").hasStarted&&i>=r*r&&i<=a*a,';
 const nameTagVisibilityReplacement = '.visible=this.polyviewerVisible!==!1&&this.polyviewerNameTagEnabled===!0&&(0,l.gn)(this,te,"f").hasStarted&&i>=r*r&&i<=a*a,';
 const skidSpawnAnchor = 'e>0&&(0,l.gn)(this,Re,"f")?.getSettingBoolean(rt.A.SkidmarksEnabled)';
-const skidSpawnReplacement = 'e>0&&this.polyviewerVisible!==!1&&this.polyviewerEffectsEnabled!==!1&&(0,l.gn)(this,Re,"f")?.getSettingBoolean(rt.A.SkidmarksEnabled)';
+const skidSpawnReplacement = 'e>0&&this.polyviewerVisible!==!1&&(0,l.gn)(this,Re,"f")?.getSettingBoolean(rt.A.SkidmarksEnabled)';
 const particleSpawnAnchor = '0==(0,l.gn)(this,Le,"f")[n]&&null!=(0,l.gn)(this,Ne,"f")&&(0,l.gn)(this,Ne,"f").spawn';
-const particleSpawnReplacement = '0==(0,l.gn)(this,Le,"f")[n]&&this.polyviewerVisible!==!1&&this.polyviewerEffectsEnabled!==!1&&null!=(0,l.gn)(this,Ne,"f")&&(0,l.gn)(this,Ne,"f").spawn';
-const particleAllocationAnchor = 'd?.getSettingBoolean(rt.A.ParticlesEnabled)?(0,l.GG)(this,Ne,new U.A(r),"f"):(0,l.GG)(this,Ne,null,"f")';
-const particleAllocationReplacement = '!window.__POLYVIEWER_LIGHTWEIGHT_CAR__&&d?.getSettingBoolean(rt.A.ParticlesEnabled)?(0,l.GG)(this,Ne,new U.A(r),"f"):(0,l.GG)(this,Ne,null,"f")';
-const skidAllocationAnchor = 'null!=(0,l.gn)(this,_e,"f")&&null!=(0,l.gn)(this,Ce,"f")&&(0,l.GG)(this,Pe,[new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f"))],"f")';
-const skidAllocationReplacement = '!window.__POLYVIEWER_LIGHTWEIGHT_CAR__&&null!=(0,l.gn)(this,_e,"f")&&null!=(0,l.gn)(this,Ce,"f")&&(0,l.GG)(this,Pe,[new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f")),new z((0,l.gn)(this,ge,"f"))],"f")';
+const particleSpawnReplacement = '0==(0,l.gn)(this,Le,"f")[n]&&this.polyviewerVisible!==!1&&null!=(0,l.gn)(this,Ne,"f")&&(0,l.gn)(this,Ne,"f").spawn';
 
 const replayConstructorBridge =
   ';const pvOwner=this,pvReplay={owner:pvOwner,driver:null,nativeCameraPose:null,priorityReplayId:"main",requestedFrame:0,get durationFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,Qp,"f"))},get loadedFrames(){const e=(0,R.gn)(pvOwner,jp,"f")[0];return null==e?0:Math.max(0,e.replay.getLastFrame().numberOfFrames)},get timeFrames(){return Math.round(1e3*(0,R.gn)(pvOwner,qp,"f"))},get primaryCar(){return(0,R.gn)(pvOwner,jp,"f")[0]?.car??null},setDriver(e){this.driver=e},setNativePaused(e){const t=!!e;(0,R.GG)(pvOwner,Kp,t,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=t},seekFrame(e){if(!Number.isSafeInteger(e)||e<0)throw new RangeError("Replay frame must be a non-negative safe integer.");const t=Math.max(0,Math.min(this.durationFrames,this.loadedFrames,e));(0,R.GG)(pvOwner,qp,t/1e3,"f"),(0,R.GG)(pvOwner,Kp,!0,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=!0}};window.__POLYTRACK_062__.replay=pvReplay;window.dispatchEvent(new CustomEvent("polytrack:replay-ready"))';
 
 const replayManagementBridge = `;{
-  const pvEntries=(0,R.gn)(pvOwner,jp,"f"),pvMaxReplays=500,pvFullEffectsLimit=20;
+  const pvEntries=(0,R.gn)(pvOwner,jp,"f"),pvMaxReplays=500;
   for(let pvIndex=0;pvIndex<pvEntries.length;pvIndex++){
     const pvEntry=pvEntries[pvIndex];
     pvEntry.polyviewerId=pvIndex===0?"main":"native-"+pvIndex;
     pvEntry.polyviewerName=pvEntry.settings.nickname??(pvIndex===0?"Main Replay":"Replay "+(pvIndex+1));
-    pvEntry.polyviewerVisible=!0;pvEntry.polyviewerOpacity=1;pvEntry.polyviewerLightweight=!1;
+    pvEntry.polyviewerVisible=!0;pvEntry.polyviewerOpacity=1;
   }
   let pvNextReplayId=1;
-  const pvPolicy=pvCount=>pvCount<=20?{mode:"full",budget:pvCount}:pvCount<=100?{mode:"balanced",budget:12}:pvCount<=250?{mode:"crowd",budget:6}:{mode:"massive",budget:2};
   pvReplay.refreshPerformance=()=>{
-    const pvVisible=pvEntries.filter(pvEntry=>pvEntry.polyviewerVisible!==!1);let pvPolicyValue=pvPolicy(pvVisible.length);if(pvPolicyValue.mode==="full"&&pvVisible.some(pvEntry=>pvEntry.polyviewerLightweight))pvPolicyValue={mode:"balanced",budget:pvVisible.length};const pvHistory=new Set;
-    const pvAddPriority=pvEntry=>{if(pvEntry&&pvEntry.polyviewerVisible!==!1&&pvHistory.size<pvPolicyValue.budget)pvHistory.add(pvEntry)};
-    pvAddPriority(pvEntries[0]);pvAddPriority(pvEntries.find(pvEntry=>pvEntry.polyviewerId===pvReplay.priorityReplayId));
-    for(const pvEntry of pvVisible)if(pvEntry.polyviewerNameTagVisible===!0)pvAddPriority(pvEntry);
-    for(const pvEntry of pvVisible)pvAddPriority(pvEntry);
-    for(const pvEntry of pvEntries){
-      pvEntry.polyviewerHistoryEnabled=pvHistory.has(pvEntry);
-      const pvEffects=pvEntry.polyviewerHistoryEnabled&&pvEntry.polyviewerVisible!==!1,pvCrowd=pvPolicyValue.mode!=="full"&&!pvEntry.polyviewerHistoryEnabled,pvSignature=(pvEffects?1:0)+":"+(pvCrowd?1:0);
-      if(pvEntry.polyviewerPerformanceSignature!==pvSignature){pvEntry.polyviewerPerformanceSignature=pvSignature;pvEntry.car.polyviewerSetAdaptiveQuality(pvEffects,pvCrowd)}
-    }
+    const pvVisible=pvEntries.filter(pvEntry=>pvEntry.polyviewerVisible!==!1);
     const pvReady=pvEntries.filter(pvEntry=>null==pvEntry.carId||pvEntry.replay.getLastFrame().numberOfFrames>=pvReplay.durationFrames).length;
-    pvReplay.performanceStatus={mode:pvPolicyValue.mode,totalReplays:pvEntries.length,visibleReplays:pvVisible.length,historyBudget:pvHistory.size,lightweightReplays:pvEntries.filter(pvEntry=>pvEntry.polyviewerLightweight).length,readyReplays:pvReady,renderReady:pvEntries.length>0&&pvEntries.every(pvEntry=>pvEntry.polyviewerVisible===!1||null==pvEntry.carId||pvEntry.replay.getLastFrame().numberOfFrames>=pvReplay.durationFrames)};
+    const pvPackedBytes=pvEntries.reduce((pvTotal,pvEntry)=>pvTotal+(pvEntry.replay.polyviewerPackedBytes??0),0);
+    pvReplay.performanceStatus={quality:"full",totalReplays:pvEntries.length,visibleReplays:pvVisible.length,packedBytes:pvPackedBytes,readyReplays:pvReady,renderReady:pvEntries.length>0&&pvEntries.every(pvEntry=>pvEntry.polyviewerVisible===!1||null==pvEntry.carId||pvEntry.replay.getLastFrame().numberOfFrames>=pvReplay.durationFrames)};
     return pvReplay.performanceStatus;
   };
   pvReplay.getPerformanceStatus=()=>({...pvReplay.refreshPerformance()});
@@ -84,13 +74,14 @@ const replayManagementBridge = `;{
     if("string"==typeof pvMetadata.carStyle&&pvMetadata.carStyle.trim().length>0)pvCarStyle=pvCarStyle.constructor.deserializeSafe(pvMetadata.carStyle.trim());
     const pvRequestedFrames=pvReplay.durationFrames,pvTrack=(0,R.gn)(pvOwner,Lp,"f"),pvMountains=(0,R.gn)(pvOwner,Dp,"f"),pvStart=pvTrack.getStartTransform();
     if(null==pvStart)throw new Error("Track has no starting point");
-    const pvLightweight=pvEntries.length>=pvFullEffectsLimit;let pvCar;
-    window.__POLYVIEWER_LIGHTWEIGHT_CAR__=pvLightweight;
-    try{pvCar=new U.A(null,pvStart,pvRecording,null,(0,R.gn)(pvOwner,Gp,"f"),(0,R.gn)(pvOwner,Fp,"f"),pvMountains,pvTrack,(0,R.gn)(pvOwner,Np,"f"),(0,R.gn)(pvOwner,Wp,"f"),null)}finally{window.__POLYVIEWER_LIGHTWEIGHT_CAR__=!1}
+    const pvCar=new U.A(null,pvStart,pvRecording,null,(0,R.gn)(pvOwner,Gp,"f"),(0,R.gn)(pvOwner,Fp,"f"),pvMountains,pvTrack,(0,R.gn)(pvOwner,Np,"f"),(0,R.gn)(pvOwner,Wp,"f"),null);
     pvCar.setCarStyle(pvCarStyle);
-    const pvEntry={replay:new Ht,checkpointTimes:[],finishSpeed:null,carId:null,car:pvCar,settings:{...pvMain.settings,nickname:"string"==typeof pvName&&pvName.trim().length>0?pvName.trim():"Replay "+(pvEntries.length+1),recording:pvRecording,time:new bt.A(pvRequestedFrames),carStyle:pvCarStyle},polyviewerId:"replay-"+pvNextReplayId++,polyviewerName:"",polyviewerVisible:!0,polyviewerOpacity:1,polyviewerLightweight:pvLightweight,polyviewerVerifiedState:Number.isSafeInteger(pvMetadata.verifiedState)?pvMetadata.verifiedState:null};
+    const pvPackedStore=window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?.();if(!pvPackedStore)throw new Error("PolyViewer replay storage is not ready. Reload once and try again.");
+    const pvPackedReplay={get polyviewerPackedBytes(){return pvPackedStore.packedBytes},push:pvState=>pvPackedStore.push(pvState),pushPacked:pvBytes=>pvPackedStore.pushPacked(pvBytes),getFrame:pvFrame=>pvPackedStore.getFrame(pvFrame),getLastFrame:()=>new bt.A(pvPackedStore.lastFrame)};
+    const pvEntry={replay:pvPackedReplay,checkpointTimes:[],finishSpeed:null,carId:null,car:pvCar,settings:{...pvMain.settings,nickname:"string"==typeof pvName&&pvName.trim().length>0?pvName.trim():"Replay "+(pvEntries.length+1),recording:pvRecording,time:new bt.A(pvRequestedFrames),carStyle:pvCarStyle},polyviewerId:"replay-"+pvNextReplayId++,polyviewerName:"",polyviewerVisible:!0,polyviewerOpacity:1,polyviewerVerifiedState:Number.isSafeInteger(pvMetadata.verifiedState)?pvMetadata.verifiedState:null};
     pvEntry.polyviewerName=pvEntry.settings.nickname;pvCar.setNameTag(null,pvEntry.polyviewerName);
-    const pvWorker=(0,R.gn)(pvOwner,Ip,"f"),pvCreated=pvWorker.createCar(pvStart,pvMountains.getMountainVertices(),pvMountains.getMountainOffset(),(0,R.gn)(pvOwner,Np,"f"),pvRecording,pvState=>{pvEntry.replay.push(pvState);if(null!=pvEntry.carId&&pvState.frames>=pvRequestedFrames){pvWorker.deleteCar(pvEntry.carId);pvEntry.carId=null}});
+    const pvWorker=(0,R.gn)(pvOwner,Ip,"f"),pvPackedCallback=pvBytes=>{pvEntry.replay.pushPacked(pvBytes);const pvFrame=pvBytes[0]|pvBytes[1]<<8|pvBytes[2]<<16;if(null!=pvEntry.carId&&pvFrame>=pvRequestedFrames){pvWorker.deleteCar(pvEntry.carId);pvEntry.carId=null}};pvPackedCallback.polyviewerPacked=!0;
+    const pvCreated=pvWorker.createCar(pvStart,pvMountains.getMountainVertices(),pvMountains.getMountainOffset(),(0,R.gn)(pvOwner,Np,"f"),pvRecording,pvPackedCallback);
     pvEntry.replay.push(pvCreated.carState);pvEntry.carId=pvCreated.id;pvEntries.push(pvEntry);pvReplay.refreshPerformance();pvWorker.startCar(pvCreated.id,new bt.A(pvRequestedFrames));return pvReplay.listReplays().at(-1)
   };
   pvReplay.setReplayName=(pvId,pvName)=>{const pvEntry=pvEntries.find(pvItem=>pvItem.polyviewerId===pvId),pvClean=String(pvName??"").trim();if(!pvEntry)throw new Error("Replay not found");if(!pvClean)throw new Error("Replay name cannot be empty");pvEntry.polyviewerName=pvClean;pvEntry.settings.nickname=pvClean;pvEntry.car.setNameTag(null,pvClean)};
@@ -104,7 +95,7 @@ const replayOverlayBridge =
   ';{const pvEntries=(0,R.gn)(pvOwner,jp,"f"),pvListReplays=pvReplay.listReplays;for(const pvEntry of pvEntries)pvEntry.polyviewerNameTagVisible=!1,pvEntry.car.polyviewerNameTagEnabled=!1,pvEntry.car.setNameTag(null,pvEntry.polyviewerName);pvReplay.listReplays=()=>pvListReplays().map((pvSummary,pvIndex)=>({...pvSummary,nameTagVisible:pvEntries[pvIndex]?.polyviewerNameTagVisible===!0}));pvReplay.setReplayNameTagVisible=(pvId,pvVisible)=>{const pvEntry=pvEntries.find(pvItem=>pvItem.polyviewerId===pvId);if(!pvEntry)throw new Error("Replay not found");pvEntry.polyviewerNameTagVisible=!!pvVisible,pvEntry.car.polyviewerNameTagEnabled=!!pvVisible,pvEntry.car.polyviewerRefreshNameTag(),pvReplay.refreshPerformance()};pvReplay.refreshOverlays=()=>{for(const pvEntry of pvEntries)pvEntry.polyviewerNameTagVisible&&pvEntry.polyviewerVisible&&pvEntry.car.polyviewerRefreshNameTag()}}';
 
 const replayEvaluationBridge =
-  ';pvReplay.evaluatedFrame=pvReplay.timeFrames,pvReplay.evaluateFrame=(pvRequestedFrame,pvAdvanceVisuals)=>{if(!Number.isSafeInteger(pvRequestedFrame)||pvRequestedFrame<0)throw new RangeError("Replay frame must be a non-negative safe integer.");const pvTarget=Math.max(0,Math.min(pvReplay.durationFrames,pvReplay.loadedFrames,pvRequestedFrame)),pvEntries=(0,R.gn)(pvOwner,jp,"f"),pvActive=pvEntries.filter(pvEntry=>pvEntry.polyviewerVisible!==!1||pvEntry.polyviewerId===pvReplay.priorityReplayId),pvApplyEntry=(pvEntry,pvFrame,pvDelta)=>{const pvAvailableFrame=Math.min(pvFrame,pvEntry.replay.getLastFrame().numberOfFrames);if(pvEntry.car.getTime().numberOfFrames!=pvAvailableFrame){const pvState=pvEntry.replay.getFrame(pvAvailableFrame);null!=pvState&&pvEntry.car.setCarState(pvState,pvState.frames!=pvEntry.car.getTime().numberOfFrames&&pvState.frames!=pvEntry.car.getTime().numberOfFrames+1)}pvEntry.car.update(pvDelta);(pvEntry.polyviewerId==="main"||pvEntry.polyviewerId===pvReplay.priorityReplayId)&&pvEntry.car.updateCameras(pvDelta)};if(pvAdvanceVisuals&&pvTarget>pvReplay.evaluatedFrame){const pvHistory=pvActive.filter(pvEntry=>pvEntry.polyviewerHistoryEnabled===!0),pvDirect=pvActive.filter(pvEntry=>pvEntry.polyviewerHistoryEnabled!==!0);for(let pvFrame=pvReplay.evaluatedFrame+1;pvFrame<=pvTarget;pvFrame++)for(const pvEntry of pvHistory)pvApplyEntry(pvEntry,pvFrame,.001);for(const pvEntry of pvDirect)pvApplyEntry(pvEntry,pvTarget,0)}else for(const pvEntry of pvActive)pvApplyEntry(pvEntry,pvTarget,0);pvReplay.evaluatedFrame=pvTarget,(0,R.GG)(pvOwner,qp,pvTarget/1e3,"f"),(0,R.GG)(pvOwner,Kp,!0,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=!0,pvReplay.nativeCameraPose=pvReplay.getNativeCameraPose("main")};';
+  ';pvReplay.evaluatedFrame=pvReplay.timeFrames,pvReplay.evaluateFrame=(pvRequestedFrame,pvAdvanceVisuals)=>{if(!Number.isSafeInteger(pvRequestedFrame)||pvRequestedFrame<0)throw new RangeError("Replay frame must be a non-negative safe integer.");const pvTarget=Math.max(0,Math.min(pvReplay.durationFrames,pvReplay.loadedFrames,pvRequestedFrame)),pvPrevious=pvReplay.evaluatedFrame,pvEntries=(0,R.gn)(pvOwner,jp,"f"),pvActive=pvEntries.filter(pvEntry=>pvEntry.polyviewerVisible!==!1||pvEntry.polyviewerId===pvReplay.priorityReplayId),pvApplyState=(pvEntry,pvFrame)=>{const pvAvailableFrame=Math.min(pvFrame,pvEntry.replay.getLastFrame().numberOfFrames);if(pvEntry.car.getTime().numberOfFrames!=pvAvailableFrame){const pvState=pvEntry.replay.getFrame(pvAvailableFrame);null!=pvState&&pvEntry.car.setCarState(pvState,pvState.frames!=pvEntry.car.getTime().numberOfFrames&&pvState.frames!=pvEntry.car.getTime().numberOfFrames+1)}};let pvDelta=0;if(pvAdvanceVisuals&&pvTarget>pvPrevious){for(let pvFrame=pvPrevious+1;pvFrame<=pvTarget;pvFrame++)for(const pvEntry of pvActive)pvApplyState(pvEntry,pvFrame);pvDelta=(pvTarget-pvPrevious)/1e3}else for(const pvEntry of pvActive)pvApplyState(pvEntry,pvTarget);for(const pvEntry of pvActive){pvEntry.car.update(pvDelta);(pvEntry.polyviewerId==="main"||pvEntry.polyviewerId===pvReplay.priorityReplayId)&&pvEntry.car.updateCameras(pvDelta)}pvReplay.evaluatedFrame=pvTarget,(0,R.GG)(pvOwner,qp,pvTarget/1e3,"f"),(0,R.GG)(pvOwner,Kp,!0,"f"),(0,R.gn)(pvOwner,Yp,"f").isPaused=!0,pvReplay.nativeCameraPose=pvReplay.getNativeCameraPose("main")};';
 
 const replayDisposeBridge =
   'const pvRuntime=window.__POLYTRACK_062__;pvRuntime?.replay?.owner===this&&(pvRuntime.replay.driver=null,pvRuntime.replay=null,window.dispatchEvent(new CustomEvent("polytrack:replay-disposed")));';
@@ -159,15 +150,14 @@ const replayUpdateOccurrences = originalBundle.split(replayUpdateAnchor).length 
 const nativeCameraUpdateOccurrences = originalBundle.split(nativeCameraUpdateAnchor).length - 1;
 const replayLoadedFramesOccurrences = originalBundle.split(replayLoadedFramesAnchor).length - 1;
 const replayApplyOccurrences = originalBundle.split(replayApplyAnchor).length - 1;
+const simulationStateDispatchOccurrences = originalBundle.split(simulationStateDispatchAnchor).length - 1;
 const carVisibilityOccurrences = originalBundle.split(carVisibilityAnchor).length - 1;
 const nameTagVisibilityOccurrences = originalBundle.split(nameTagVisibilityAnchor).length - 1;
 const skidSpawnOccurrences = originalBundle.split(skidSpawnAnchor).length - 1;
 const particleSpawnOccurrences = originalBundle.split(particleSpawnAnchor).length - 1;
-const particleAllocationOccurrences = originalBundle.split(particleAllocationAnchor).length - 1;
-const skidAllocationOccurrences = originalBundle.split(skidAllocationAnchor).length - 1;
-if (replayClassOccurrences !== 1 || replayDisposeOccurrences !== 1 || replayUpdateOccurrences !== 1 || nativeCameraUpdateOccurrences !== 1 || replayLoadedFramesOccurrences !== 1 || replayApplyOccurrences !== 1 || carVisibilityOccurrences !== 1 || nameTagVisibilityOccurrences !== 1 || skidSpawnOccurrences !== 1 || particleSpawnOccurrences !== 1 || particleAllocationOccurrences !== 1 || skidAllocationOccurrences !== 1) {
+if (replayClassOccurrences !== 1 || replayDisposeOccurrences !== 1 || replayUpdateOccurrences !== 1 || nativeCameraUpdateOccurrences !== 1 || replayLoadedFramesOccurrences !== 1 || replayApplyOccurrences !== 1 || simulationStateDispatchOccurrences !== 1 || carVisibilityOccurrences !== 1 || nameTagVisibilityOccurrences !== 1 || skidSpawnOccurrences !== 1 || particleSpawnOccurrences !== 1) {
   throw new Error(
-    `Refusing to patch PolyTrack replay state: verified anchor count mismatch ${replayClassOccurrences}/${replayDisposeOccurrences}/${replayUpdateOccurrences}/${nativeCameraUpdateOccurrences}/${replayLoadedFramesOccurrences}/${replayApplyOccurrences}/${carVisibilityOccurrences}/${nameTagVisibilityOccurrences}/${skidSpawnOccurrences}/${particleSpawnOccurrences}/${particleAllocationOccurrences}/${skidAllocationOccurrences}.`,
+    `Refusing to patch PolyTrack replay state: verified anchor count mismatch ${replayClassOccurrences}/${replayDisposeOccurrences}/${replayUpdateOccurrences}/${nativeCameraUpdateOccurrences}/${replayLoadedFramesOccurrences}/${replayApplyOccurrences}/${simulationStateDispatchOccurrences}/${carVisibilityOccurrences}/${nameTagVisibilityOccurrences}/${skidSpawnOccurrences}/${particleSpawnOccurrences}.`,
   );
 }
 
@@ -182,13 +172,12 @@ bridgedBundle = bridgedBundle.replace(replayUpdateAnchor, `${replayUpdateAnchor}
 bridgedBundle = bridgedBundle.replace(nativeCameraUpdateAnchor, `${nativeCameraUpdateReplacement};${nativeCameraUpdateBridge}`);
 bridgedBundle = bridgedBundle.replace(replayLoadedFramesAnchor, replayLoadedFramesReplacement);
 bridgedBundle = bridgedBundle.replace(replayApplyAnchor, replayApplyReplacement);
+bridgedBundle = bridgedBundle.replace(simulationStateDispatchAnchor, simulationStateDispatchReplacement);
 bridgedBundle = bridgedBundle
   .replace(carVisibilityAnchor, carVisibilityReplacement)
   .replace(nameTagVisibilityAnchor, nameTagVisibilityReplacement)
   .replace(skidSpawnAnchor, skidSpawnReplacement)
-  .replace(particleSpawnAnchor, particleSpawnReplacement)
-  .replace(particleAllocationAnchor, particleAllocationReplacement)
-  .replace(skidAllocationAnchor, skidAllocationReplacement);
+  .replace(particleSpawnAnchor, particleSpawnReplacement);
 
 const proxiedBundle = bridgedBundle
   .replaceAll(upstreamApiBase, localApiBase)

@@ -37,8 +37,13 @@ if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.des
   throw new Error("The production bundle does not contain the verified native replay importer.");
 }
 if (!bundle.includes("pvMaxReplays=500") || !bundle.includes("pvReplay.getPerformanceStatus=")
-  || !bundle.includes("polyviewerHistoryEnabled")) {
-  throw new Error("The production bundle does not contain adaptive large-replay evaluation.");
+  || !bundle.includes('quality:"full"') || !bundle.includes("polyviewerPacked===!0")
+  || !bundle.includes("__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__")) {
+  throw new Error("The production bundle does not contain full-quality packed replay evaluation.");
+}
+if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyviewerHistoryEnabled")
+  || bundle.includes("__POLYVIEWER_LIGHTWEIGHT_CAR__")) {
+  throw new Error("A removed adaptive-fidelity path remains in the production bundle.");
 }
 if (bundle.includes("supports up to 20 simultaneous replays")) {
   throw new Error("The removed 20-car runtime ceiling remains in the production bundle.");
@@ -49,8 +54,12 @@ if (!bundle.includes("pvRequestedFrames=pvReplay.durationFrames") || bundle.incl
 if (bundle.includes("pvReplay.setReplayOffset=") || bundle.includes("polyviewerOffsetFrames")) {
   throw new Error("Removed replay offset controls remain in the production runtime.");
 }
-if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvApplyEntry(pvEntry,pvFrame,.001)")) {
-  throw new Error("The production bundle does not contain exact native frame evaluation.");
+if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvApplyState(pvEntry,pvFrame)")
+  || !bundle.includes("pvEntry.car.update(pvDelta)")) {
+  throw new Error("The production bundle does not contain exact state evaluation with native frame-rate visual updates.");
+}
+if (bundle.split("pvEntry.car.update(pvDelta)").length - 1 !== 1) {
+  throw new Error("The production bundle can perform more than one native visual update per replay per output frame.");
 }
 if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("pvReplay.setReplayNameTagVisible=")) {
   throw new Error("The production bundle does not contain camera-facing replay name labels.");
