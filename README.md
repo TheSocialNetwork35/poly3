@@ -86,7 +86,7 @@ The **Add Replay** control is enabled only in that real Watch context. Invalid s
 
 - **Fixed:** independent six-axis world camera that stays where the creator places it
 - **Look At:** keeps its world-space position while continuously aiming at the selected real replay car
-- **Normal:** the real PolyTrack `cameraOrbit` replay camera with local cinematic position/orientation offsets and PolyViewer FOV
+- **Normal:** the real PolyTrack `cameraOrbit` replay camera with local cinematic position/orientation/FOV offsets; its native speed response remains intact, so higher speed widens the FOV and visibly zooms out exactly like standard PolyTrack
 - **Follow:** follows the main replay's position while keeping an independent world orientation
 - **Attached:** stores camera position and rotation in the replay car's local space for cockpit, wheel, bumper, roof, and other mounted shots
 

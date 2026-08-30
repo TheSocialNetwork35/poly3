@@ -103,6 +103,7 @@ export function migrateCameraState(state: CinematicCameraState): CinematicCamera
   migrated.lookAtOffset ??= { x: 0, y: 0, z: 0, w: 1 };
   migrated.normalPositionOffset ??= { x: 0, y: 0, z: 0 };
   migrated.normalOrientationOffset ??= { x: 0, y: 0, z: 0, w: 1 };
+  migrated.normalFovOffset ??= 0;
   return migrated;
 }
 
