@@ -30,7 +30,7 @@ describe("DeterministicFrameRenderer", () => {
     ]);
     expect(frames).toEqual([1_000_000, 1_500_000]);
     expect(renderer.polyviewerBeginCapture).toHaveBeenCalledWith(1920, 1080);
-    expect(renderer.polyviewerRenderFrame).toHaveBeenCalledTimes(2);
+    expect(renderer.polyviewerRenderFrame.mock.calls).toEqual([[true], [true]]);
     expect(renderer.polyviewerEndCapture).toHaveBeenCalledOnce();
     expect(scene.restoreEditorState).toHaveBeenCalledWith(editorState);
     expect(progress).toHaveBeenLastCalledWith(2, 2);
@@ -56,6 +56,33 @@ describe("DeterministicFrameRenderer", () => {
     )).rejects.toMatchObject({ name: "AbortError" });
     expect(renderer.polyviewerEndCapture).toHaveBeenCalledOnce();
     expect(scene.restoreEditorState).toHaveBeenCalledOnce();
+  });
+
+  it("can explicitly skip native car shadow passes for faster exports", async () => {
+    const renderer = createRenderer();
+    const scene = {
+      captureEditorState: () => ({ timeMicroseconds: 0, playing: false }),
+      restoreEditorState: vi.fn(),
+      evaluateRenderFrame: vi.fn(),
+    };
+    const frameRenderer = new DeterministicFrameRenderer(
+      renderer as unknown as PolyTrackRenderer,
+      scene as never,
+    );
+
+    await frameRenderer.render(
+      {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        startMicroseconds: 0,
+        endMicroseconds: 40_000,
+        carShadows: false,
+      },
+      { onFrame: vi.fn() },
+    );
+
+    expect(renderer.polyviewerRenderFrame).toHaveBeenCalledWith(false);
   });
 });
 

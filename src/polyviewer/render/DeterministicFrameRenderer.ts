@@ -7,6 +7,8 @@ export interface FrameRenderSettings {
   fps: number;
   startMicroseconds: number;
   endMicroseconds: number;
+  /** Render PolyTrack's native vehicle shadows. Defaults to true. */
+  carShadows?: boolean;
 }
 
 export interface RenderedFrame {
@@ -64,7 +66,7 @@ export class DeterministicFrameRenderer {
         const timestamp = frameTimeMicroseconds(index, settings.startMicroseconds, settings.fps);
         const nextTimestamp = frameTimeMicroseconds(index + 1, settings.startMicroseconds, settings.fps);
         if (index > 0) this.#sceneEvaluator.evaluateRenderFrame(timestamp, true);
-        this.#renderer.polyviewerRenderFrame();
+        this.#renderer.polyviewerRenderFrame(settings.carShadows !== false);
         const image = options.captureImage === false
           ? undefined
           : await canvasToBlob(this.#renderer.canvas);

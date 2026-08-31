@@ -17,7 +17,11 @@ const audioManagerAnchor = 'this.isAppActive=!0,(0,R.GG)(this,m,e,"f"),(0,R.GG)(
 const audioManagerReplacement = 'this.isAppActive=!0,window.__POLYVIEWER_AUDIO__=this,(0,R.GG)(this,m,e,"f"),(0,R.GG)(this,A,t,"f");try{const e=new(window.AudioContext||window.webkitAudioContext);';
 
 const rendererCaptureAnchor = 'clear(){(0,i.gn)(this,k,"f").clear()}update(e){';
-const rendererCaptureReplacement = 'clear(){(0,i.gn)(this,k,"f").clear()}polyviewerBeginCapture(e,t){if(this.polyviewerCaptureState)throw new Error("A PolyViewer capture is already active.");if(!Number.isSafeInteger(e)||!Number.isSafeInteger(t)||e<=0||t<=0)throw new RangeError("Capture dimensions must be positive safe integers.");const n=(0,i.gn)(this,k,"f"),a=(0,i.gn)(this,M,"f"),s=(0,i.gn)(this,w,"f");this.polyviewerCaptureState={pixelRatio:n.getPixelRatio(),width:s.width/n.getPixelRatio(),height:s.height/n.getPixelRatio(),aspect:a.aspect},n.setPixelRatio(1),n.setSize(e,t,!1),a.aspect=e/t,a.updateProjectionMatrix()}polyviewerRenderFrame(){const e=(0,i.gn)(this,_ ,"f");null!=e&&(e.camera=(0,i.gn)(this,M,"f"),e.update()),(0,i.gn)(this,k,"f").render((0,i.gn)(this,E,"f"),(0,i.gn)(this,M,"f"))}polyviewerEndCapture(){const e=this.polyviewerCaptureState;if(!e)return;const t=(0,i.gn)(this,k,"f"),n=(0,i.gn)(this,M,"f");t.setPixelRatio(e.pixelRatio),t.setSize(e.width,e.height,!1),n.aspect=e.aspect,n.updateProjectionMatrix(),this.polyviewerCaptureState=null}update(e){if(this.polyviewerCaptureState)return;';
+const rendererCaptureReplacement = 'clear(){(0,i.gn)(this,k,"f").clear()}polyviewerBeginCapture(e,t){if(this.polyviewerCaptureState)throw new Error("A PolyViewer capture is already active.");if(!Number.isSafeInteger(e)||!Number.isSafeInteger(t)||e<=0||t<=0)throw new RangeError("Capture dimensions must be positive safe integers.");const n=(0,i.gn)(this,k,"f"),a=(0,i.gn)(this,M,"f"),s=(0,i.gn)(this,w,"f");this.polyviewerCaptureState={pixelRatio:n.getPixelRatio(),width:s.width/n.getPixelRatio(),height:s.height/n.getPixelRatio(),aspect:a.aspect},n.setPixelRatio(1),n.setSize(e,t,!1),a.aspect=e/t,a.updateProjectionMatrix()}polyviewerRenderFrame(e=!0){const t=(0,i.gn)(this,k,"f");if(e&&null!=this.polyviewerLastUpdateSource){this.polyviewerCaptureShadowPass=!0;try{this.update(this.polyviewerLastUpdateSource)}finally{this.polyviewerCaptureShadowPass=!1}return}const n=t.shadowMap.enabled;t.shadowMap.enabled=!1;try{(0,i.gn)(this,k,"f").render((0,i.gn)(this,E,"f"),(0,i.gn)(this,M,"f"))}finally{t.shadowMap.enabled=n}}polyviewerEndCapture(){const e=this.polyviewerCaptureState;if(!e)return;const t=(0,i.gn)(this,k,"f"),n=(0,i.gn)(this,M,"f");t.setPixelRatio(e.pixelRatio),t.setSize(e.width,e.height,!1),n.aspect=e.aspect,n.updateProjectionMatrix(),this.polyviewerCaptureState=null}update(e){this.polyviewerLastUpdateSource=e;if(this.polyviewerCaptureState&&!this.polyviewerCaptureShadowPass)return;';
+const rendererShadowQualityAnchor = 'let t=(0,i.gn)(this,x,"f")?.getSettingInteger(W.A.ShadowQuality)??0;';
+const rendererShadowQualityReplacement = 'let t=this.polyviewerCaptureShadowPass?Math.max(2,(0,i.gn)(this,x,"f")?.getSettingInteger(W.A.ShadowQuality)??0):(0,i.gn)(this,x,"f")?.getSettingInteger(W.A.ShadowQuality)??0;';
+const rendererResizeAnchor = '(0,i.gn)(this,b,"m",z).call(this),(0,i.gn)(this,b,"m",G).call(this),(0,i.gn)(this,k,"f").render';
+const rendererResizeReplacement = 'this.polyviewerCaptureShadowPass||(0,i.gn)(this,b,"m",z).call(this),(0,i.gn)(this,b,"m",G).call(this),(0,i.gn)(this,k,"f").render';
 
 const replayClassAnchor = "const cg=class{constructor(e,t,n,i,r,a,s,o,l,c,h,d,u){";
 const replayDisposeAnchor = '}dispose(){(0,R.gn)(this,Lp,"f").clear(),(0,R.gn)(this,Dp,"f").clearMountains();';
@@ -118,6 +122,8 @@ const mainBundlePath = resolve(runtimeDirectory, "main.bundle.js");
 const originalBundle = await readFile(resolve(vendorDirectory, "main.bundle.js"), "utf8");
 const occurrences = originalBundle.split(animationLoopAnchor).length - 1;
 const rendererCaptureOccurrences = originalBundle.split(rendererCaptureAnchor).length - 1;
+const rendererShadowQualityOccurrences = originalBundle.split(rendererShadowQualityAnchor).length - 1;
+const rendererResizeOccurrences = originalBundle.split(rendererResizeAnchor).length - 1;
 const audioManagerOccurrences = originalBundle.split(audioManagerAnchor).length - 1;
 
 if (occurrences !== 1) {
@@ -125,8 +131,8 @@ if (occurrences !== 1) {
     `Refusing to patch PolyTrack: expected one verified 0.6.2 animation-loop anchor, found ${occurrences}.`,
   );
 }
-if (rendererCaptureOccurrences !== 1) {
-  throw new Error(`Refusing to patch PolyTrack renderer capture: expected one verified anchor, found ${rendererCaptureOccurrences}.`);
+if (rendererCaptureOccurrences !== 1 || rendererShadowQualityOccurrences !== 1 || rendererResizeOccurrences !== 1) {
+  throw new Error(`Refusing to patch PolyTrack renderer capture: expected verified capture/shadow/resize anchors, found ${rendererCaptureOccurrences}/${rendererShadowQualityOccurrences}/${rendererResizeOccurrences}.`);
 }
 if (audioManagerOccurrences !== 1) {
   throw new Error(`Refusing to patch PolyTrack audio capture: expected one verified anchor, found ${audioManagerOccurrences}.`);
@@ -142,6 +148,8 @@ if (apiOccurrences !== 10) {
 let bridgedBundle = originalBundle
   .replace(animationLoopAnchor, bridge)
   .replace(rendererCaptureAnchor, rendererCaptureReplacement)
+  .replace(rendererShadowQualityAnchor, rendererShadowQualityReplacement)
+  .replace(rendererResizeAnchor, rendererResizeReplacement)
   .replace(audioManagerAnchor, audioManagerReplacement);
 
 const replayClassOccurrences = originalBundle.split(replayClassAnchor).length - 1;
