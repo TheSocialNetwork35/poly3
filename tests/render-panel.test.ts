@@ -7,9 +7,15 @@ describe("RenderPanel", () => {
     "utf8",
   );
 
-  it("offers native car shadows as an enabled-by-default render option", () => {
+  it("offers expensive native effects as enabled-by-default render options", () => {
     expect(source).toContain('name="shadows" type="checkbox" checked');
+    expect(source).toContain('name="particles" type="checkbox" checked');
+    expect(source).toContain('name="skidmarks" type="checkbox" checked');
     expect(source).toContain('const carShadows = data.get("shadows") === "on";');
+    expect(source).toContain('const particles = data.get("particles") === "on";');
+    expect(source).toContain('const skidmarks = data.get("skidmarks") === "on";');
     expect(source).toContain("carShadows,");
+    expect(source).toContain("particles,");
+    expect(source).toContain("skidmarks,");
   });
 });

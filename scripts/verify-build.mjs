@@ -67,9 +67,16 @@ if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("pvReplay
 if (!bundle.includes("this.polyviewerVisible!==!1") || !bundle.includes("for(const e of(0,l.gn)(this,Pe,\"f\"))e.clear()")) {
   throw new Error("Hidden replay cars can still retain native particles or skidmark trails.");
 }
-if (!bundle.includes("polyviewerBeginCapture(e,t)") || !bundle.includes("polyviewerRenderFrame(e=!0)") || !bundle.includes("polyviewerEndCapture()")
+if (!bundle.includes("polyviewerBeginCapture(e,t,n={})") || !bundle.includes("polyviewerRenderFrame(e=!0)") || !bundle.includes("polyviewerEndCapture()")
   || !bundle.includes("polyviewerCaptureShadowPass?Math.max(2,") || !bundle.includes("t.shadowMap.enabled=!1")) {
   throw new Error("The production bundle does not contain deterministic WebGL capture controls.");
+}
+if (!bundle.includes("__POLYVIEWER_RENDER_EFFECTS__={particles:")
+  || !bundle.includes("__POLYVIEWER_RENDER_EFFECTS__?.particles!==!1")
+  || !bundle.includes("__POLYVIEWER_RENDER_EFFECTS__?.skidmarks!==!1")
+  || !bundle.includes("polyviewerSetRenderEffects(e)")
+  || !bundle.includes("setVisible(e){(0,d.gn)(this,a,\"f\").visible=e}")) {
+  throw new Error("The production bundle does not contain independent particle and tire-mark render controls.");
 }
 if (!bundle.includes("window.__POLYVIEWER_AUDIO__=this") || !bundle.includes("get audio(){return window.__POLYVIEWER_AUDIO__??null}")) {
   throw new Error("The production bundle does not expose PolyTrack's native audio graph for export.");

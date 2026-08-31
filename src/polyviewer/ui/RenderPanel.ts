@@ -44,6 +44,8 @@ export class RenderPanel {
         <label>Start time (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
         <label>End time (seconds)<input name="end" type="number" min="0" step="0.001" required></label>
         <label class="polyviewer-render-option"><input name="shadows" type="checkbox" checked> Car shadows</label>
+        <label class="polyviewer-render-option"><input name="particles" type="checkbox" checked> Particles (dust and smoke)</label>
+        <label class="polyviewer-render-option"><input name="skidmarks" type="checkbox" checked> Tire marks</label>
         <label class="polyviewer-render-option"><input name="audio" type="checkbox" checked> Include real PolyTrack sound (adds a 1.0× audio pass)</label>
         <p class="polyviewer-render-status" aria-live="polite">Ready to render.</p>
         <progress max="1" value="0"></progress>
@@ -96,6 +98,8 @@ export class RenderPanel {
     const endMicroseconds = Math.round(Number(data.get("end")) * 1_000_000);
     const includeAudio = data.get("audio") === "on";
     const carShadows = data.get("shadows") === "on";
+    const particles = data.get("particles") === "on";
+    const skidmarks = data.get("skidmarks") === "on";
     if (!resolution || (fps !== 30 && fps !== 60)) {
       this.#status.textContent = "Choose a valid resolution and FPS.";
       return;
@@ -116,6 +120,8 @@ export class RenderPanel {
         startMicroseconds,
         endMicroseconds,
         carShadows,
+        particles,
+        skidmarks,
       }, this.#controller.signal, includeAudio,
       (completed, total) => this.#progress(completed, total),
       (elapsed, duration) => {

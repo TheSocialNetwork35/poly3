@@ -9,6 +9,10 @@ export interface FrameRenderSettings {
   endMicroseconds: number;
   /** Render PolyTrack's native vehicle shadows. Defaults to true. */
   carShadows?: boolean;
+  /** Render PolyTrack's native dust/smoke particle systems. Defaults to true. */
+  particles?: boolean;
+  /** Build PolyTrack's persistent tire/skid mark geometry. Defaults to true. */
+  skidmarks?: boolean;
 }
 
 export interface RenderedFrame {
@@ -43,7 +47,10 @@ export class DeterministicFrameRenderer {
       settings.fps,
     );
     const editorState = this.#sceneEvaluator.captureEditorState();
-    this.#renderer.polyviewerBeginCapture(settings.width, settings.height);
+    this.#renderer.polyviewerBeginCapture(settings.width, settings.height, {
+      particles: settings.particles !== false,
+      skidmarks: settings.skidmarks !== false,
+    });
     try {
       if (options.signal?.aborted) throw new DOMException("Rendering cancelled.", "AbortError");
       this.#sceneEvaluator.evaluateRenderFrame(0, false);

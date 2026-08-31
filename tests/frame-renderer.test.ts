@@ -29,7 +29,10 @@ describe("DeterministicFrameRenderer", () => {
       [1_500_000, true],
     ]);
     expect(frames).toEqual([1_000_000, 1_500_000]);
-    expect(renderer.polyviewerBeginCapture).toHaveBeenCalledWith(1920, 1080);
+    expect(renderer.polyviewerBeginCapture).toHaveBeenCalledWith(1920, 1080, {
+      particles: true,
+      skidmarks: true,
+    });
     expect(renderer.polyviewerRenderFrame.mock.calls).toEqual([[true], [true]]);
     expect(renderer.polyviewerEndCapture).toHaveBeenCalledOnce();
     expect(scene.restoreEditorState).toHaveBeenCalledWith(editorState);
@@ -83,6 +86,37 @@ describe("DeterministicFrameRenderer", () => {
     );
 
     expect(renderer.polyviewerRenderFrame).toHaveBeenCalledWith(false);
+  });
+
+  it("passes independent particle and tire-mark choices to the native capture runtime", async () => {
+    const renderer = createRenderer();
+    const scene = {
+      captureEditorState: () => ({ timeMicroseconds: 0, playing: false }),
+      restoreEditorState: vi.fn(),
+      evaluateRenderFrame: vi.fn(),
+    };
+    const frameRenderer = new DeterministicFrameRenderer(
+      renderer as unknown as PolyTrackRenderer,
+      scene as never,
+    );
+
+    await frameRenderer.render(
+      {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        startMicroseconds: 0,
+        endMicroseconds: 40_000,
+        particles: false,
+        skidmarks: false,
+      },
+      { onFrame: vi.fn() },
+    );
+
+    expect(renderer.polyviewerBeginCapture).toHaveBeenCalledWith(1920, 1080, {
+      particles: false,
+      skidmarks: false,
+    });
   });
 });
 

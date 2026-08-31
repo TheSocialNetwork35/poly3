@@ -107,7 +107,11 @@ declare global {
     readonly scene: PolyTrackScene;
     readonly camera: PolyTrackCamera;
     readonly canvas: HTMLCanvasElement;
-    polyviewerBeginCapture(width: number, height: number): void;
+    polyviewerBeginCapture(
+      width: number,
+      height: number,
+      effects?: { particles?: boolean; skidmarks?: boolean },
+    ): void;
     polyviewerRenderFrame(carShadows?: boolean): void;
     polyviewerEndCapture(): void;
   }
