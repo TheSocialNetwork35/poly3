@@ -259,6 +259,35 @@ describe("ReplayBridge", () => {
     replay.dispose();
   });
 
+  it("delegates deferred render preparation, progress, and cache release", async () => {
+    const progress = vi.fn();
+    const prepareRender = vi.fn(async (_signal?: AbortSignal, onProgress?: (done: number, total: number) => void) => {
+      onProgress?.(20, 2_000);
+      onProgress?.(2_000, 2_000);
+    });
+    const releaseRenderPreparation = vi.fn();
+    const runtimeReplay = {
+      owner: {}, driver: null, durationFrames: 20_000, loadedFrames: 20_000, timeFrames: 0,
+      primaryCar: fakeCar, nativeCameraPose: null,
+      ...replayManagementMethods(),
+      prepareRender,
+      releaseRenderPreparation,
+      setDriver() {}, setNativePaused() {}, seekFrame() {},
+    } satisfies PolyTrackReplayRuntimeBridge;
+    const replay = new ReplayBridge(
+      { replay: runtimeReplay } as unknown as PolyTrackBridge,
+      new MasterTimeline(),
+    );
+
+    await replay.prepareAllForRender(undefined, progress);
+    replay.releaseRenderPreparation();
+
+    expect(prepareRender).toHaveBeenCalledOnce();
+    expect(progress.mock.calls).toEqual([[20, 2_000], [2_000, 2_000]]);
+    expect(releaseRenderPreparation).toHaveBeenCalledOnce();
+    replay.dispose();
+  });
+
   it("does not rebuild hundreds of replay summary objects on every animation frame", () => {
     let driver: PolyTrackReplayDriver | null = null;
     const methods = replayManagementMethods();

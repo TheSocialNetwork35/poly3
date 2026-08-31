@@ -36,7 +36,7 @@ if (!bundle.includes("nativeCameraPose={position:")) {
 if (!bundle.includes("pvReplay.addReplay=") || !bundle.includes("constructor.deserialize(pvRecordingString.trim())")) {
   throw new Error("The production bundle does not contain the verified native replay importer.");
 }
-if (!bundle.includes("pvMaxReplays=500") || !bundle.includes("pvReplay.getPerformanceStatus=")
+if (!bundle.includes("pvMaxReplays=2000") || !bundle.includes("pvReplay.getPerformanceStatus=")
   || !bundle.includes('quality:"full"') || !bundle.includes("polyviewerPacked===!0")
   || !bundle.includes("__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__")) {
   throw new Error("The production bundle does not contain full-quality packed replay evaluation.");
@@ -46,6 +46,13 @@ if (!bundle.includes("pvReplay.previewLimit=20") || !bundle.includes("pvReplay.s
   || !bundle.includes("a?.setRenderMode?.(!1)")) {
   throw new Error("The production bundle does not enforce the 20-car preview budget and all-car render mode.");
 }
+if (!bundle.includes("pvReplay.simulationConcurrency=20")
+  || !bundle.includes("pvReplay.syncPreviewSimulations=")
+  || !bundle.includes("pvReplay.prepareRender=")
+  || !bundle.includes('polyviewerSimulationState:"idle"')
+  || bundle.includes("pvWorker.startCar(pvCreated.id,new bt.A(pvRequestedFrames))")) {
+  throw new Error("The production bundle does not defer non-preview simulations until render preparation.");
+}
 if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyviewerHistoryEnabled")
   || bundle.includes("__POLYVIEWER_LIGHTWEIGHT_CAR__")) {
   throw new Error("A removed adaptive-fidelity path remains in the production bundle.");
@@ -53,7 +60,9 @@ if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyview
 if (bundle.includes("supports up to 20 simultaneous replays")) {
   throw new Error("The removed 20-car runtime ceiling remains in the production bundle.");
 }
-if (!bundle.includes("pvRequestedFrames=pvReplay.durationFrames") || bundle.includes("durationOverrideFrames")) {
+if (!bundle.includes("time:new bt.A(pvReplay.durationFrames)")
+  || !bundle.includes("pvWorker.startCar(pvCreated.id,new bt.A(pvReplay.durationFrames))")
+  || bundle.includes("durationOverrideFrames")) {
   throw new Error("Imported leaderboard frame metadata can still alter the authoritative shot duration.");
 }
 if (bundle.includes("pvReplay.setReplayOffset=") || bundle.includes("polyviewerOffsetFrames")) {

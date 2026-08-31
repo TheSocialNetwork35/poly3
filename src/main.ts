@@ -24,12 +24,13 @@ let shell: EditorShell;
 let videoExporter: VideoExporter | null = null;
 const cameraEditAuthority = new CameraEditAuthority();
 const renderPanel = new RenderPanel({
-  onRender: (settings, signal, includeAudio, onProgress, onAudioProgress, onAudioWarning) => {
+  onRender: (settings, signal, includeAudio, onProgress, onPreparationProgress, onAudioProgress, onAudioWarning) => {
     if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
     return videoExporter.export(settings, {
       signal,
       includeAudio,
       onProgress,
+      onReplayPreparationProgress: onPreparationProgress,
       onAudioProgress,
       onAudioWarning,
     });
@@ -151,8 +152,7 @@ void waitForPolyTrackBridge()
         shell.setPerformanceStatus(status.performance);
         shell.setRenderAvailable(
           status.connected && status.durationMicroseconds > 0
-          && status.loadedMicroseconds >= status.durationMicroseconds
-          && status.performance.renderReady,
+          && status.loadedMicroseconds >= status.durationMicroseconds,
         );
         if (status.active && cameraEditAuthority.shouldApplyPath(status.playing)) {
           sceneEvaluator?.evaluatePreview(status.timeMicroseconds);

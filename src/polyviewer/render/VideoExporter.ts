@@ -18,6 +18,7 @@ import { captureNativeReplayAudio, prepareNativeReplayAudio } from "./NativeAudi
 export interface VideoExportOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
+  onReplayPreparationProgress?: (completed: number, total: number) => void;
   onAudioProgress?: (elapsedMicroseconds: number, durationMicroseconds: number) => void;
   onAudioWarning?: (message: string) => void;
   includeAudio?: boolean;
@@ -75,72 +76,77 @@ export class VideoExporter {
       throw new Error(`No MP4 video encoder supports ${settings.width}×${settings.height} in this browser.`);
     }
 
-    let audioBuffer: AudioBuffer | null = null;
-    if (options.includeAudio !== false && audioPrepared) {
-      try {
-        audioBuffer = await captureNativeReplayAudio(
-          this.#audio,
-          this.#replay,
-          settings.startMicroseconds,
-          settings.endMicroseconds,
-          { signal: options.signal, onProgress: options.onAudioProgress },
-        );
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") throw error;
-        options.onAudioWarning?.(error instanceof Error ? error.message : "Audio capture failed.");
-      }
-    }
-
-    const target = new BufferTarget();
-    const output = new Output({ format, target });
-    const source = new CanvasSource(this.#canvas, {
-      codec,
-      quality: QUALITY_HIGH,
-      latencyMode: "quality",
-      keyFrameInterval: 2,
-      sizeChangeBehavior: "deny",
-    });
-    output.addVideoTrack(source, { frameRate: settings.fps });
-    let audioSource: AudioBufferSource | null = null;
-    if (audioBuffer) {
-      const audioCodec = await selectAudioCodec(
-        format,
-        audioBuffer.numberOfChannels,
-        audioBuffer.sampleRate,
-      );
-      if (audioCodec) {
-        audioSource = new AudioBufferSource({ codec: audioCodec, quality: QUALITY_HIGH });
-        output.addAudioTrack(audioSource, { name: "PolyTrack game audio" });
-      }
-    }
-    await output.start();
-
+    await this.#replay.prepareAllForRender(options.signal, options.onReplayPreparationProgress);
     try {
-      const videoRender = this.#frameRenderer.render(settings, {
-        signal: options.signal,
-        captureImage: false,
-        onProgress: options.onProgress,
-        onFrame: async (frame) => {
-          const timestamp = (frame.timestampMicroseconds - settings.startMicroseconds) / 1_000_000;
-          await source.add(timestamp, frame.durationMicroseconds / 1_000_000);
-        },
-      });
-      await Promise.all([videoRender, audioSource?.add(audioBuffer!) ?? Promise.resolve()]);
-      await output.finalize();
-    } catch (error) {
-      if (output.state === "started") await output.cancel();
-      throw error;
-    }
+      let audioBuffer: AudioBuffer | null = null;
+      if (options.includeAudio !== false && audioPrepared) {
+        try {
+          audioBuffer = await captureNativeReplayAudio(
+            this.#audio,
+            this.#replay,
+            settings.startMicroseconds,
+            settings.endMicroseconds,
+            { signal: options.signal, onProgress: options.onAudioProgress },
+          );
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") throw error;
+          options.onAudioWarning?.(error instanceof Error ? error.message : "Audio capture failed.");
+        }
+      }
 
-    if (!target.buffer) throw new Error("The MP4 muxer finalized without producing a video buffer.");
-    const mimeType = await output.getMimeType();
-    return {
-      blob: new Blob([target.buffer], { type: mimeType }),
-      codec,
-      mimeType,
-      extension: "mp4",
-      hasAudio: audioSource !== null,
-    };
+      const target = new BufferTarget();
+      const output = new Output({ format, target });
+      const source = new CanvasSource(this.#canvas, {
+        codec,
+        quality: QUALITY_HIGH,
+        latencyMode: "quality",
+        keyFrameInterval: 2,
+        sizeChangeBehavior: "deny",
+      });
+      output.addVideoTrack(source, { frameRate: settings.fps });
+      let audioSource: AudioBufferSource | null = null;
+      if (audioBuffer) {
+        const audioCodec = await selectAudioCodec(
+          format,
+          audioBuffer.numberOfChannels,
+          audioBuffer.sampleRate,
+        );
+        if (audioCodec) {
+          audioSource = new AudioBufferSource({ codec: audioCodec, quality: QUALITY_HIGH });
+          output.addAudioTrack(audioSource, { name: "PolyTrack game audio" });
+        }
+      }
+      await output.start();
+
+      try {
+        const videoRender = this.#frameRenderer.render(settings, {
+          signal: options.signal,
+          captureImage: false,
+          onProgress: options.onProgress,
+          onFrame: async (frame) => {
+            const timestamp = (frame.timestampMicroseconds - settings.startMicroseconds) / 1_000_000;
+            await source.add(timestamp, frame.durationMicroseconds / 1_000_000);
+          },
+        });
+        await Promise.all([videoRender, audioSource?.add(audioBuffer!) ?? Promise.resolve()]);
+        await output.finalize();
+      } catch (error) {
+        if (output.state === "started") await output.cancel();
+        throw error;
+      }
+
+      if (!target.buffer) throw new Error("The MP4 muxer finalized without producing a video buffer.");
+      const mimeType = await output.getMimeType();
+      return {
+        blob: new Blob([target.buffer], { type: mimeType }),
+        codec,
+        mimeType,
+        extension: "mp4",
+        hasAudio: audioSource !== null,
+      };
+    } finally {
+      this.#replay.releaseRenderPreparation();
+    }
   }
 }
 

@@ -47,8 +47,11 @@ export class EditorShell {
   #shortcutSheet: HTMLElement;
   #rightStack: HTMLElement;
   #replayPanel: HTMLElement;
+  #replayDetails: HTMLDetailsElement;
   #performanceStatus: HTMLElement;
   #performanceSignature = "";
+  #targetSignature = "";
+  #replayListFrame = 0;
 
   constructor(options: EditorShellOptions = {}) {
     this.element = document.createElement("aside");
@@ -172,11 +175,12 @@ export class EditorShell {
     const replayDialog = this.#replayPanel.querySelector<HTMLDialogElement>(".polyviewer-replay-dialog");
     const targetSelect = this.#replayPanel.querySelector<HTMLSelectElement>("[data-camera-target]");
     const replayList = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-list");
+    const replayDetails = this.#replayPanel.querySelector<HTMLDetailsElement>("details");
     const replaySearch = this.#replayPanel.querySelector<HTMLInputElement>(".polyviewer-replay-search input");
     const masterOpacity = this.#replayPanel.querySelector<HTMLInputElement>("[data-replay-master-opacity]");
     const masterOpacityValue = this.#replayPanel.querySelector<HTMLOutputElement>(".polyviewer-master-opacity output");
     const performanceStatus = this.#replayPanel.querySelector<HTMLElement>(".polyviewer-replay-performance");
-    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replaySearch || !masterOpacity || !masterOpacityValue || !performanceStatus) {
+    if (!addReplayButton || !replayCount || !replayDialog || !targetSelect || !replayList || !replayDetails || !replaySearch || !masterOpacity || !masterOpacityValue || !performanceStatus) {
       throw new Error("Failed to construct replay import controls.");
     }
     this.#addReplayButton = addReplayButton;
@@ -184,11 +188,23 @@ export class EditorShell {
     this.#replayDialog = replayDialog;
     this.#targetSelect = targetSelect;
     this.#replayList = replayList;
+    this.#replayDetails = replayDetails;
     this.#replaySearch = replaySearch;
     this.#masterOpacity = masterOpacity;
     this.#masterOpacityValue = masterOpacityValue;
     this.#performanceStatus = performanceStatus;
-    replaySearch.addEventListener("input", () => this.#renderReplayRows());
+    replaySearch.addEventListener("input", () => {
+      replayList.scrollTop = 0;
+      this.#renderReplayRows();
+    });
+    replayDetails.addEventListener("toggle", () => this.#renderReplayRows());
+    replayList.addEventListener("scroll", () => {
+      if (this.#replayListFrame !== 0) return;
+      this.#replayListFrame = requestAnimationFrame(() => {
+        this.#replayListFrame = 0;
+        this.#renderReplayRows();
+      });
+    }, { passive: true });
     masterOpacity.addEventListener("input", () => {
       this.#showMasterOpacityValue(Number(masterOpacity.value));
       this.#previewMasterOpacityInRows(masterOpacity.value);
@@ -311,16 +327,16 @@ export class EditorShell {
     const signature = `${status.quality}:${status.totalReplays}:${status.visibleReplays}:${status.previewReplays}:${status.readyReplays}:${packedMegabytes.toFixed(1)}`;
     if (signature === this.#performanceSignature) return;
     this.#performanceSignature = signature;
-    const preparing = status.readyReplays < status.totalReplays
-      ? ` · preparing ${status.readyReplays}/${status.totalReplays}`
+    const deferred = status.readyReplays < status.visibleReplays
+      ? ` · ${status.visibleReplays - status.readyReplays} prepare on Render`
       : "";
     const storage = status.packedBytes > 0 ? ` · ${formatStorageSize(status.packedBytes)} replay cache` : "";
     const preview = status.visibleReplays > status.previewReplays
       ? `Preview ${status.previewReplays}/${status.visibleReplays} cars · render all`
       : `Preview all ${status.previewReplays} cars`;
-    this.#performanceStatus.textContent = `${preview}${storage}${preparing}`;
+    this.#performanceStatus.textContent = `${preview}${storage}${deferred}`;
     this.#performanceStatus.dataset.mode = "full";
-    this.#performanceStatus.title = "Preview draws at most 20 full-quality cars for responsive editing. Final rendering automatically includes every enabled car.";
+    this.#performanceStatus.title = "Only the 20 preview cars are simulated during editing. Final rendering prepares every enabled car through a bounded worker queue.";
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {
@@ -332,12 +348,16 @@ export class EditorShell {
     this.#syncMasterOpacity(replays);
     if (this.#applyingMasterOpacity) return;
     const selectedTarget = this.#targetSelect.value;
-    this.#targetSelect.replaceChildren(...replays.map((replay) => {
-      const option = document.createElement("option");
-      option.value = replay.id;
-      option.textContent = replay.name;
-      return option;
-    }));
+    const targetSignature = replays.map((replay) => `${replay.id}\u0000${replay.name}`).join("\u0001");
+    if (targetSignature !== this.#targetSignature) {
+      this.#targetSignature = targetSignature;
+      this.#targetSelect.replaceChildren(...replays.map((replay) => {
+        const option = document.createElement("option");
+        option.value = replay.id;
+        option.textContent = replay.name;
+        return option;
+      }));
+    }
     const nextTarget = replays.some((replay) => replay.id === selectedTarget)
       ? selectedTarget
       : replays[0]?.id ?? "";
@@ -385,7 +405,26 @@ export class EditorShell {
     this.#replayCount.textContent = query
       ? `${visible.length}/${this.#replays.length} runs`
       : formatRunCount(this.#replays.length);
-    this.#replayList.replaceChildren(...visible.map((replay) => createReplayRow(replay)));
+    if (!this.#replayDetails.open || visible.length === 0) {
+      this.#replayList.replaceChildren();
+    } else {
+      const rowHeight = 104;
+      const overscan = 5;
+      const viewportRows = Math.max(1, Math.ceil(this.#replayList.clientHeight / rowHeight));
+      const start = Math.max(0, Math.floor(this.#replayList.scrollTop / rowHeight) - overscan);
+      const end = Math.min(visible.length, start + viewportRows + overscan * 2);
+      const top = document.createElement("div");
+      top.className = "polyviewer-replay-spacer";
+      top.style.height = `${start * rowHeight}px`;
+      const bottom = document.createElement("div");
+      bottom.className = "polyviewer-replay-spacer";
+      bottom.style.height = `${(visible.length - end) * rowHeight}px`;
+      this.#replayList.replaceChildren(
+        top,
+        ...visible.slice(start, end).map((replay) => createReplayRow(replay)),
+        bottom,
+      );
+    }
     this.#replayList.dataset.emptyLabel = this.#replays.length > 0
       ? "No matching run"
       : "No replay loaded";

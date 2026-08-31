@@ -104,7 +104,8 @@ export class ReplayTimeline {
         : Math.floor(status.loadedMicroseconds / status.durationMicroseconds * 100);
       this.#loadStatus.textContent = `Preparing real replay ${Math.max(0, Math.min(100, percent))}%`;
     } else if (!status.performance.renderReady) {
-      this.#loadStatus.textContent = `Preparing cars ${status.performance.readyReplays}/${status.performance.totalReplays} · preview stays available`;
+      const deferred = Math.max(0, status.performance.visibleReplays - status.performance.readyReplays);
+      this.#loadStatus.textContent = `Preview ${status.performance.previewReplays}/${status.performance.visibleReplays} cars · ${deferred} prepare when Render starts`;
     } else {
       const preview = status.performance.previewReplays;
       const enabled = status.performance.visibleReplays;

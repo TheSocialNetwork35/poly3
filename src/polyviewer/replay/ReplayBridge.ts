@@ -2,7 +2,7 @@ import { MasterTimeline } from "../timeline/MasterTimeline";
 import { parseReplayImport, parseReplayImports, type ReplayImportPayload } from "./ReplayImport";
 
 const MICROSECONDS_PER_FRAME = 1_000;
-export const MAX_REPLAY_CARS = 500;
+export const MAX_REPLAY_CARS = 2_000;
 
 interface ReplayBridgeOptions {
   onChange?: (status: ReplayBridgeStatus) => void;
@@ -116,29 +116,26 @@ export class ReplayBridge {
     const imports = parseReplayImports(recordingsValue, leaderboardValue);
     const available = MAX_REPLAY_CARS - this.#replays.length;
     if (imports.length > available) {
-      throw new Error(`This performance stage supports up to ${MAX_REPLAY_CARS} cars; ${Math.max(0, available)} slots remain.`);
+      throw new Error(`This project supports up to ${MAX_REPLAY_CARS} cars; ${Math.max(0, available)} slots remain.`);
     }
     this.timeline.pause();
     const added: PolyViewerReplaySummary[] = [];
+    replay.beginReplayBatch?.();
     try {
       for (let index = 0; index < imports.length; index += 1) {
         const item = imports[index]!;
         added.push(this.#addParsedReplay(replay, item.payload, item.name));
-        // Car construction clones native materials and registers a simulation
-        // job. Yield in small batches so importing hundreds of runs never
-        // monopolizes the main thread for one enormous task.
-        if ((index + 1) % 4 === 0 && index + 1 < imports.length) {
-          this.#refreshReplays();
-          this.#refreshPerformance();
-          this.#notify();
-          await yieldToBrowser();
-        }
+        // Import only constructs the native visual shell; worker simulation is
+        // lazy. Yield without rebuilding the entire 2,000-row UI on each batch.
+        if ((index + 1) % 20 === 0 && index + 1 < imports.length) await yieldToBrowser();
       }
     } catch (error) {
       for (const entry of added.reverse()) replay.removeReplay(entry.id);
       this.#refreshReplays();
       this.#refreshPerformance();
       throw error;
+    } finally {
+      replay.endReplayBatch?.();
     }
     this.#refreshReplays();
     this.#refreshPerformance();
@@ -202,6 +199,26 @@ export class ReplayBridge {
     const replay = this.#runtimeReplay;
     replay?.setPriorityReplay?.(id);
     if (this.#refreshPerformance()) this.#notify();
+  }
+
+  async prepareAllForRender(
+    signal?: AbortSignal,
+    onProgress?: (completed: number, total: number) => void,
+  ): Promise<void> {
+    const replay = this.#requireRuntimeReplay();
+    if (typeof replay.prepareRender !== "function") {
+      if (this.#performance.renderReady) return;
+      throw new Error("Reload once to enable deferred replay preparation.");
+    }
+    await replay.prepareRender(signal, onProgress);
+    this.#refreshPerformance();
+    this.#notify();
+  }
+
+  releaseRenderPreparation(): void {
+    this.#runtimeReplay?.releaseRenderPreparation?.();
+    this.#refreshPerformance();
+    this.#notify();
   }
 
   evaluateExactFrame(timeMicroseconds: number, advanceVisuals: boolean): void {

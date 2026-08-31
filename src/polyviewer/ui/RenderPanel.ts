@@ -7,6 +7,7 @@ interface RenderPanelOptions {
     signal: AbortSignal,
     includeAudio: boolean,
     onProgress: (completed: number, total: number) => void,
+    onPreparationProgress: (completed: number, total: number) => void,
     onAudioProgress: (elapsedMicroseconds: number, durationMicroseconds: number) => void,
     onAudioWarning: (message: string) => void,
   ) => Promise<VideoExportResult>;
@@ -124,6 +125,9 @@ export class RenderPanel {
         skidmarks,
       }, this.#controller.signal, includeAudio,
       (completed, total) => this.#progress(completed, total),
+      (completed, total) => {
+        this.#progress(completed, total, "Preparing replay cars");
+      },
       (elapsed, duration) => {
         this.#status.textContent = `Recording real PolyTrack sound at 1.0× · ${Math.round(elapsed / 1_000_000)} / ${Math.round(duration / 1_000_000)}s`;
       },
@@ -142,14 +146,14 @@ export class RenderPanel {
     }
   }
 
-  #progress(completed: number, total: number): void {
+  #progress(completed: number, total: number, label = "Rendering"): void {
     const progress = this.element.querySelector<HTMLProgressElement>("progress");
     if (progress) {
       progress.max = Math.max(1, total);
       progress.value = completed;
     }
-    if (completed > 0) {
-      this.#status.textContent = `Rendering ${completed} / ${total} · ${Math.round(completed / total * 100)}%`;
+    if (completed > 0 || label !== "Rendering") {
+      this.#status.textContent = `${label} ${completed} / ${total} · ${Math.round(completed / total * 100)}%`;
     }
   }
 }

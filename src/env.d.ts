@@ -47,7 +47,14 @@ declare global {
     getPerformanceStatus?(): PolyViewerReplayPerformanceStatus;
     setPriorityReplay?(id: string): void;
     setRenderMode?(rendering: boolean): void;
+    prepareRender?(
+      signal?: AbortSignal,
+      onProgress?: (completed: number, total: number) => void,
+    ): Promise<void>;
+    releaseRenderPreparation?(): void;
     addReplay?(recordingString: string, name?: string, metadata?: PolyViewerReplayImportMetadata): PolyViewerReplaySummary;
+    beginReplayBatch?(): void;
+    endReplayBatch?(): void;
     setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
     setReplayOpacity(id: string, opacity: number): void;
