@@ -4,6 +4,43 @@
   src: url("/forced_square.woff2") format("woff2");
   font-display: swap;
 }
+
+.polyviewer-site-credit {
+  position: fixed;
+  left: 50%;
+  bottom: max(3px, env(safe-area-inset-bottom));
+  z-index: 99990;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  color: rgb(255 255 255 / 42%);
+  font: 9px/1.2 "Forced Square", system-ui, sans-serif;
+  letter-spacing: 0.025em;
+  text-align: center;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 55%);
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.polyviewer-site-credit a {
+  color: inherit;
+  text-decoration-color: rgb(255 255 255 / 24%);
+  text-underline-offset: 2px;
+  pointer-events: auto;
+}
+
+.polyviewer-site-credit a:hover,
+.polyviewer-site-credit a:focus-visible {
+  color: rgb(255 255 255 / 72%);
+}
+
+@media (max-width: 760px) {
+  .polyviewer-site-credit {
+    bottom: max(2px, env(safe-area-inset-bottom));
+    font-size: 8px;
+  }
+}
+
 .polyviewer-shell {
   --pv-blue: #4b7dff;
   position: fixed;
