@@ -308,16 +308,19 @@ export class EditorShell {
 
   setPerformanceStatus(status: PolyViewerReplayPerformanceStatus): void {
     const packedMegabytes = status.packedBytes / (1024 * 1024);
-    const signature = `${status.quality}:${status.totalReplays}:${status.readyReplays}:${packedMegabytes.toFixed(1)}`;
+    const signature = `${status.quality}:${status.totalReplays}:${status.visibleReplays}:${status.previewReplays}:${status.readyReplays}:${packedMegabytes.toFixed(1)}`;
     if (signature === this.#performanceSignature) return;
     this.#performanceSignature = signature;
     const preparing = status.readyReplays < status.totalReplays
       ? ` · preparing ${status.readyReplays}/${status.totalReplays}`
       : "";
     const storage = status.packedBytes > 0 ? ` · ${formatStorageSize(status.packedBytes)} replay cache` : "";
-    this.#performanceStatus.textContent = `Full quality${storage}${preparing}`;
+    const preview = status.visibleReplays > status.previewReplays
+      ? `Preview ${status.previewReplays}/${status.visibleReplays} cars · render all`
+      : `Preview all ${status.previewReplays} cars`;
+    this.#performanceStatus.textContent = `${preview}${storage}${preparing}`;
     this.#performanceStatus.dataset.mode = "full";
-    this.#performanceStatus.title = "Every visible car keeps the complete native PolyTrack model, shadows, particles, skidmarks, wheels, materials, and exact replay history.";
+    this.#performanceStatus.title = "Preview draws at most 20 full-quality cars for responsive editing. Final rendering automatically includes every enabled car.";
   }
 
   setReplays(connected: boolean, replays: PolyViewerReplaySummary[]): void {

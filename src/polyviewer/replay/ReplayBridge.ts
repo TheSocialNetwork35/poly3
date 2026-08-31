@@ -403,6 +403,7 @@ function emptyPerformanceStatus(totalReplays = 0): PolyViewerReplayPerformanceSt
     quality: "full",
     totalReplays,
     visibleReplays: totalReplays,
+    previewReplays: Math.min(totalReplays, 20),
     packedBytes: 0,
     readyReplays: totalReplays,
     renderReady: totalReplays > 0,
@@ -416,6 +417,7 @@ function samePerformanceStatus(
   return left.quality === right.quality
     && left.totalReplays === right.totalReplays
     && left.visibleReplays === right.visibleReplays
+    && left.previewReplays === right.previewReplays
     && left.packedBytes === right.packedBytes
     && left.readyReplays === right.readyReplays
     && left.renderReady === right.renderReady;

@@ -41,6 +41,11 @@ if (!bundle.includes("pvMaxReplays=500") || !bundle.includes("pvReplay.getPerfor
   || !bundle.includes("__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__")) {
   throw new Error("The production bundle does not contain full-quality packed replay evaluation.");
 }
+if (!bundle.includes("pvReplay.previewLimit=20") || !bundle.includes("pvReplay.setRenderMode=")
+  || !bundle.includes("polyviewerPreviewVisible") || !bundle.includes("r?.setRenderMode?.(!0)")
+  || !bundle.includes("a?.setRenderMode?.(!1)")) {
+  throw new Error("The production bundle does not enforce the 20-car preview budget and all-car render mode.");
+}
 if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyviewerHistoryEnabled")
   || bundle.includes("__POLYVIEWER_LIGHTWEIGHT_CAR__")) {
   throw new Error("A removed adaptive-fidelity path remains in the production bundle.");

@@ -106,7 +106,11 @@ export class ReplayTimeline {
     } else if (!status.performance.renderReady) {
       this.#loadStatus.textContent = `Preparing cars ${status.performance.readyReplays}/${status.performance.totalReplays} · preview stays available`;
     } else {
-      this.#loadStatus.textContent = `${status.performance.totalReplays} real car${status.performance.totalReplays === 1 ? "" : "s"} · full quality`;
+      const preview = status.performance.previewReplays;
+      const enabled = status.performance.visibleReplays;
+      this.#loadStatus.textContent = enabled > preview
+        ? `Preview ${preview}/${enabled} cars · render uses all enabled cars`
+        : `${enabled} real car${enabled === 1 ? "" : "s"} · full quality`;
     }
   }
 

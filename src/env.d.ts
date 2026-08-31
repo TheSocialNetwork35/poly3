@@ -46,6 +46,7 @@ declare global {
     getNativeCameraPose?(id: string): PolyTrackCameraPose | null;
     getPerformanceStatus?(): PolyViewerReplayPerformanceStatus;
     setPriorityReplay?(id: string): void;
+    setRenderMode?(rendering: boolean): void;
     addReplay?(recordingString: string, name?: string, metadata?: PolyViewerReplayImportMetadata): PolyViewerReplaySummary;
     setReplayName(id: string, name: string): void;
     setReplayVisible(id: string, visible: boolean): void;
@@ -79,6 +80,7 @@ declare global {
     quality: "full";
     totalReplays: number;
     visibleReplays: number;
+    previewReplays: number;
     packedBytes: number;
     readyReplays: number;
     renderReady: boolean;
