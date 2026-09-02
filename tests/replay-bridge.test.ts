@@ -253,15 +253,23 @@ describe("ReplayBridge", () => {
       recording: `recording-${index}-abcdefghijklmnopqrstuvwxyz0123456789`,
     }));
 
-    await replay.addReplays(JSON.stringify(recordings));
+    const progress = vi.fn();
+    await replay.addReplays(JSON.stringify(recordings), "", progress);
 
     expect(addReplay).toHaveBeenCalledTimes(24);
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: "ready", completed: 24, total: 24,
+    }));
     replay.dispose();
   });
 
   it("delegates deferred render preparation, progress, and cache release", async () => {
     const progress = vi.fn();
-    const prepareRender = vi.fn(async (_signal?: AbortSignal, onProgress?: (done: number, total: number) => void) => {
+    const prepareRender = vi.fn(async (
+      _settings: PolyViewerReplayRenderPreparation,
+      _signal?: AbortSignal,
+      onProgress?: (done: number, total: number) => void,
+    ) => {
       onProgress?.(20, 2_000);
       onProgress?.(2_000, 2_000);
     });
@@ -279,10 +287,12 @@ describe("ReplayBridge", () => {
       new MasterTimeline(),
     );
 
-    await replay.prepareAllForRender(undefined, progress);
+    const settings = { fps: 60, startMicroseconds: 0, endMicroseconds: 5_000_000 };
+    await replay.prepareAllForRender(settings, undefined, progress);
     replay.releaseRenderPreparation();
 
     expect(prepareRender).toHaveBeenCalledOnce();
+    expect(prepareRender).toHaveBeenCalledWith(settings, undefined, progress);
     expect(progress.mock.calls).toEqual([[20, 2_000], [2_000, 2_000]]);
     expect(releaseRenderPreparation).toHaveBeenCalledOnce();
     replay.dispose();

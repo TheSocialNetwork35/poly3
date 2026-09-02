@@ -41,6 +41,11 @@ export interface PackedCarState {
 
 type StoredFrame = PackedCarState | Uint8Array;
 
+export interface PackedReplayStoreOptions {
+  /** Keep only these millisecond frames while still tracking worker progress. */
+  sampleFrames?: ReadonlySet<number>;
+}
+
 /**
  * Stores worker-produced CarState buffers without expanding every millisecond
  * into a large graph of JavaScript objects. Two reusable decoded states are
@@ -49,14 +54,21 @@ type StoredFrame = PackedCarState | Uint8Array;
  */
 export class PackedReplayStore {
   #frames: StoredFrame[] = [];
+  #frameNumbers: number[] = [];
+  #sampleFrames: ReadonlySet<number> | null;
+  #lastFrame = -1;
   #decodeSlots = [createCarState(), createCarState()];
   #nextDecodeSlot = 0;
   #cachedFrame = -1;
   #cachedState: PackedCarState | null = null;
   #packedBytes = 0;
 
+  constructor(options: PackedReplayStoreOptions = {}) {
+    this.#sampleFrames = options.sampleFrames ?? null;
+  }
+
   get lastFrame(): number {
-    return Math.max(0, this.#frames.length - 1);
+    return Math.max(0, this.#lastFrame);
   }
 
   get packedBytes(): number {
@@ -65,6 +77,9 @@ export class PackedReplayStore {
 
   push(state: PackedCarState): void {
     this.#assertNextFrame(state.frames);
+    this.#lastFrame = state.frames;
+    if (!this.#shouldStore(state.frames)) return;
+    this.#frameNumbers.push(state.frames);
     this.#frames.push(state);
   }
 
@@ -74,34 +89,63 @@ export class PackedReplayStore {
     }
     const frame = readUint24(bytes, 0);
     this.#assertNextFrame(frame);
+    this.#lastFrame = frame;
+    if (!this.#shouldStore(frame)) return;
+    this.#frameNumbers.push(frame);
     this.#frames.push(bytes);
     this.#packedBytes += bytes.byteLength;
   }
 
   getFrame(frame: number): PackedCarState | null {
-    if (!Number.isSafeInteger(frame) || frame < 0 || frame >= this.#frames.length) return null;
-    const stored = this.#frames[frame]!;
+    if (!Number.isSafeInteger(frame) || frame < 0 || this.#frames.length === 0) return null;
+    const storedIndex = this.#findFrameAtOrBefore(frame);
+    if (storedIndex < 0) return null;
+    const stored = this.#frames[storedIndex]!;
     if (!(stored instanceof Uint8Array)) return stored;
-    if (this.#cachedFrame === frame) return this.#cachedState;
+    const storedFrame = this.#frameNumbers[storedIndex]!;
+    if (this.#cachedFrame === storedFrame) return this.#cachedState;
     const target = this.#decodeSlots[this.#nextDecodeSlot]!;
     this.#nextDecodeSlot = (this.#nextDecodeSlot + 1) % this.#decodeSlots.length;
     decodeCarStateInto(stored, target);
-    this.#cachedFrame = frame;
+    this.#cachedFrame = storedFrame;
     this.#cachedState = target;
     return target;
   }
 
   #assertNextFrame(frame: number): void {
-    if (frame !== this.#frames.length) {
-      throw new Error(this.#frames.length === 0
+    if (frame !== this.#lastFrame + 1) {
+      throw new Error(this.#lastFrame < 0
         ? "First frame must be zero"
         : "Car states are not continuous");
     }
   }
+
+  #shouldStore(frame: number): boolean {
+    return this.#sampleFrames === null || frame === 0 || this.#sampleFrames.has(frame);
+  }
+
+  #findFrameAtOrBefore(frame: number): number {
+    if (this.#sampleFrames === null) return Math.min(frame, this.#frames.length - 1);
+    let low = 0;
+    let high = this.#frameNumbers.length - 1;
+    let result = -1;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      if (this.#frameNumbers[middle]! <= frame) {
+        result = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+    return result;
+  }
 }
 
 export function installPackedReplayStoreFactory(): void {
-  window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__ = () => new PackedReplayStore();
+  window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__ = (options) => new PackedReplayStore({
+    sampleFrames: options?.sampleFrames ? new Set(options.sampleFrames) : undefined,
+  });
 }
 
 export function decodeCarStateInto(bytes: Uint8Array, target: PackedCarState): PackedCarState {

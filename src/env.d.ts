@@ -4,7 +4,9 @@ declare global {
   interface Window {
     __POLYTRACK_062__?: PolyTrackBridge;
     __POLYVIEWER_INPUT_ACTIVE__: boolean;
-    __POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?: () => PolyViewerPackedReplayStore;
+    __POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?: (options?: {
+      sampleFrames?: number[];
+    }) => PolyViewerPackedReplayStore;
   }
 
   interface PolyTrackBridge {
@@ -48,6 +50,7 @@ declare global {
     setPriorityReplay?(id: string): void;
     setRenderMode?(rendering: boolean): void;
     prepareRender?(
+      settings: PolyViewerReplayRenderPreparation,
       signal?: AbortSignal,
       onProgress?: (completed: number, total: number) => void,
     ): Promise<void>;
@@ -66,6 +69,12 @@ declare global {
     setNativePaused(paused: boolean): void;
     seekFrame(frame: number): void;
     evaluateFrame(frame: number, advanceVisuals: boolean): void;
+  }
+
+  interface PolyViewerReplayRenderPreparation {
+    fps: number;
+    startMicroseconds: number;
+    endMicroseconds: number;
   }
 
   interface PolyViewerReplayImportMetadata {

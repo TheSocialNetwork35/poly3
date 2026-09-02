@@ -53,6 +53,12 @@ if (!bundle.includes("pvReplay.simulationConcurrency=20")
   || bundle.includes("pvWorker.startCar(pvCreated.id,new bt.A(pvRequestedFrames))")) {
   throw new Error("The production bundle does not defer non-preview simulations until render preparation.");
 }
+if (!bundle.includes("polyviewerRuntimeEntry:null")
+  || !bundle.includes("const pvDeactivate=")
+  || !bundle.includes("const pvBuildSampleFrames=")
+  || !bundle.includes("sampleFrames:[...pvSampleFrames]")) {
+  throw new Error("The production bundle does not contain lazy car activation and sampled render replay storage.");
+}
 if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyviewerHistoryEnabled")
   || bundle.includes("__POLYVIEWER_LIGHTWEIGHT_CAR__")) {
   throw new Error("A removed adaptive-fidelity path remains in the production bundle.");

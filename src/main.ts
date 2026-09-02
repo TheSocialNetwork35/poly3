@@ -53,8 +53,8 @@ shell = new EditorShell({
   onAddReplay: (recordingString, name) => {
     replayBridge?.addReplay(recordingString, name);
   },
-  onAddReplays: (recordingsValue, leaderboardValue) => {
-    return replayBridge?.addReplays(recordingsValue, leaderboardValue);
+  onAddReplays: (recordingsValue, leaderboardValue, onProgress) => {
+    return replayBridge?.addReplays(recordingsValue, leaderboardValue, onProgress);
   },
   onTargetReplayChange: (id) => {
     cameraEditAuthority.beginManualEdit();

@@ -34,6 +34,10 @@ describe("large replay preview budget", () => {
     expect(runtimePatch).toContain("pvMaxReplays=2000");
     expect(runtimePatch).toContain('polyviewerSimulationState:"idle"');
     expect(runtimePatch).not.toContain("pvWorker.startCar(pvCreated.id,new bt.A(pvRequestedFrames))");
+    expect(runtimePatch).toContain("polyviewerRuntimeEntry:null");
+    expect(runtimePatch).toContain("const pvDeactivate=");
+    expect(runtimePatch).toContain("const pvBuildSampleFrames=");
+    expect(runtimePatch).toContain("sampleFrames:[...pvSampleFrames]");
   });
 
   it("virtualizes the replay controls instead of mounting 2,000 editor rows", () => {

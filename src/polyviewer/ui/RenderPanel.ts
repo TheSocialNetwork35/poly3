@@ -25,6 +25,7 @@ export class RenderPanel {
   #controller: AbortController | null = null;
   #status: HTMLElement;
   #submit: HTMLButtonElement;
+  #preparationStartedAt = 0;
 
   constructor(options: RenderPanelOptions) {
     this.element = document.createElement("dialog");
@@ -112,6 +113,7 @@ export class RenderPanel {
       return;
     }
     this.#controller = new AbortController();
+    this.#preparationStartedAt = performance.now();
     this.#submit.disabled = true;
     try {
       const result = await options.onRender({
@@ -126,7 +128,7 @@ export class RenderPanel {
       }, this.#controller.signal, includeAudio,
       (completed, total) => this.#progress(completed, total),
       (completed, total) => {
-        this.#progress(completed, total, "Preparing replay cars");
+        this.#preparationProgress(completed, total);
       },
       (elapsed, duration) => {
         this.#status.textContent = `Recording real PolyTrack sound at 1.0× · ${Math.round(elapsed / 1_000_000)} / ${Math.round(duration / 1_000_000)}s`;
@@ -142,6 +144,7 @@ export class RenderPanel {
         : error instanceof Error ? error.message : "Video rendering failed.";
     } finally {
       this.#controller = null;
+      this.#preparationStartedAt = 0;
       this.#submit.disabled = false;
     }
   }
@@ -156,6 +159,21 @@ export class RenderPanel {
       this.#status.textContent = `${label} ${completed} / ${total} · ${Math.round(completed / total * 100)}%`;
     }
   }
+
+  #preparationProgress(completed: number, total: number): void {
+    this.#progress(completed, total, "Preparing replay cars");
+    if (completed <= 0 || completed >= total || this.#preparationStartedAt <= 0) return;
+    const elapsed = performance.now() - this.#preparationStartedAt;
+    const remaining = elapsed / completed * (total - completed);
+    this.#status.textContent += ` · about ${formatDuration(remaining)} left`;
+  }
+}
+
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.max(1, Math.round(milliseconds / 1_000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${seconds % 60}s`;
 }
 
 function downloadVideo(result: VideoExportResult): void {

@@ -76,7 +76,7 @@ export class VideoExporter {
       throw new Error(`No MP4 video encoder supports ${settings.width}×${settings.height} in this browser.`);
     }
 
-    await this.#replay.prepareAllForRender(options.signal, options.onReplayPreparationProgress);
+    await this.#replay.prepareAllForRender(settings, options.signal, options.onReplayPreparationProgress);
     try {
       let audioBuffer: AudioBuffer | null = null;
       if (options.includeAudio !== false && audioPrepared) {

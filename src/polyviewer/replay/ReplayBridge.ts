@@ -26,6 +26,14 @@ export interface ReplayEditorState {
   playing: boolean;
 }
 
+export interface ReplayImportProgress {
+  phase: "reading" | "registering" | "ready";
+  completed: number;
+  total: number;
+  elapsedMilliseconds: number;
+  estimatedRemainingMilliseconds: number | null;
+}
+
 /**
  * Owns the single connection between PolyViewer's deterministic clock and the
  * verified PolyTrack replay-preview state. PolyTrack still evaluates every car
@@ -108,11 +116,24 @@ export class ReplayBridge {
     return added;
   }
 
-  async addReplays(recordingsValue: string, leaderboardValue = ""): Promise<PolyViewerReplaySummary[]> {
+  async addReplays(
+    recordingsValue: string,
+    leaderboardValue = "",
+    onProgress?: (progress: ReplayImportProgress) => void,
+  ): Promise<PolyViewerReplaySummary[]> {
     const replay = this.#runtimeReplay;
     if (!replay || typeof replay.addReplay !== "function") {
       throw new Error("Open a PolyTrack replay and reload once if the runtime was just updated.");
     }
+    const startedAt = performance.now();
+    onProgress?.({
+      phase: "reading",
+      completed: 0,
+      total: 0,
+      elapsedMilliseconds: 0,
+      estimatedRemainingMilliseconds: null,
+    });
+    await yieldToBrowser();
     const imports = parseReplayImports(recordingsValue, leaderboardValue);
     const available = MAX_REPLAY_CARS - this.#replays.length;
     if (imports.length > available) {
@@ -120,14 +141,32 @@ export class ReplayBridge {
     }
     this.timeline.pause();
     const added: PolyViewerReplaySummary[] = [];
+    onProgress?.({
+      phase: "registering",
+      completed: 0,
+      total: imports.length,
+      elapsedMilliseconds: performance.now() - startedAt,
+      estimatedRemainingMilliseconds: null,
+    });
     replay.beginReplayBatch?.();
     try {
       for (let index = 0; index < imports.length; index += 1) {
         const item = imports[index]!;
         added.push(this.#addParsedReplay(replay, item.payload, item.name));
-        // Import only constructs the native visual shell; worker simulation is
-        // lazy. Yield without rebuilding the entire 2,000-row UI on each batch.
-        if ((index + 1) % 20 === 0 && index + 1 < imports.length) await yieldToBrowser();
+        const completed = index + 1;
+        if (completed % 20 === 0 || completed === imports.length) {
+          const elapsedMilliseconds = performance.now() - startedAt;
+          onProgress?.({
+            phase: "registering",
+            completed,
+            total: imports.length,
+            elapsedMilliseconds,
+            estimatedRemainingMilliseconds: completed > 0
+              ? elapsedMilliseconds / completed * (imports.length - completed)
+              : null,
+          });
+          if (completed < imports.length) await yieldToBrowser();
+        }
       }
     } catch (error) {
       for (const entry of added.reverse()) replay.removeReplay(entry.id);
@@ -140,6 +179,13 @@ export class ReplayBridge {
     this.#refreshReplays();
     this.#refreshPerformance();
     this.#notify();
+    onProgress?.({
+      phase: "ready",
+      completed: imports.length,
+      total: imports.length,
+      elapsedMilliseconds: performance.now() - startedAt,
+      estimatedRemainingMilliseconds: 0,
+    });
     return added;
   }
 
@@ -202,6 +248,7 @@ export class ReplayBridge {
   }
 
   async prepareAllForRender(
+    settings: PolyViewerReplayRenderPreparation,
     signal?: AbortSignal,
     onProgress?: (completed: number, total: number) => void,
   ): Promise<void> {
@@ -210,7 +257,7 @@ export class ReplayBridge {
       if (this.#performance.renderReady) return;
       throw new Error("Reload once to enable deferred replay preparation.");
     }
-    await replay.prepareRender(signal, onProgress);
+    await replay.prepareRender(settings, signal, onProgress);
     this.#refreshPerformance();
     this.#notify();
   }

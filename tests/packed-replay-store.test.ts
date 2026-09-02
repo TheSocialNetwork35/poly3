@@ -41,6 +41,19 @@ describe("PackedReplayStore", () => {
       "CarState data is too short",
     );
   });
+
+  it("tracks full worker progress while retaining only requested render frames", () => {
+    const store = new PackedReplayStore({ sampleFrames: new Set([0, 2, 5]) });
+    store.push(state(0));
+    for (let frame = 1; frame <= 5; frame += 1) store.pushPacked(encode(state(frame)));
+
+    expect(store.lastFrame).toBe(5);
+    expect(store.getFrame(1)?.frames).toBe(0);
+    expect(store.getFrame(2)?.frames).toBe(2);
+    expect(store.getFrame(4)?.frames).toBe(2);
+    expect(store.getFrame(5)?.frames).toBe(5);
+    expect(store.packedBytes).toBe(encode(state(2)).byteLength * 2);
+  });
 });
 
 function state(frame: number, detailed = false): PackedCarState {

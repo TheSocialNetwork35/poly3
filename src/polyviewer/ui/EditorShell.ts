@@ -1,6 +1,7 @@
 import type { CameraMode, FreeCameraStatus } from "../camera/FreeCameraController";
 import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
 import { MAX_REPLAY_CARS } from "../replay/ReplayBridge";
+import type { ReplayImportProgress } from "../replay/ReplayBridge";
 
 interface EditorShellOptions {
   onCameraModeChange?: (mode: CameraMode) => void;
@@ -10,7 +11,11 @@ interface EditorShellOptions {
   onDuplicateCameraPoint?: (id: string) => void;
   onDeleteCameraPoint?: (id: string) => void;
   onAddReplay?: (recordingString: string, name?: string) => void;
-  onAddReplays?: (recordingsValue: string, leaderboardValue?: string) => void | Promise<unknown>;
+  onAddReplays?: (
+    recordingsValue: string,
+    leaderboardValue?: string,
+    onProgress?: (progress: ReplayImportProgress) => void,
+  ) => void | Promise<unknown>;
   onTargetReplayChange?: (id: string) => void;
   onReplayNameChange?: (id: string, name: string) => void;
   onReplayVisibilityChange?: (id: string, visible: boolean) => void;
@@ -113,6 +118,10 @@ export class EditorShell {
           <label>Single replay name (optional)<input name="name" type="text" maxlength="60" placeholder="World Record"></label>
           <label>Recording, object, or replay array JSON<textarea name="recording" required spellcheck="false" placeholder='[{"recording":"…","frames":15178,"carStyle":"…"}]'></textarea></label>
           <label>Leaderboard names JSON (optional)<textarea name="leaderboard" spellcheck="false" placeholder='{"entries":[{"nickname":"SpeedySebas","frames":15178,"carStyle":"…"}]}'></textarea></label>
+          <section class="polyviewer-import-progress" aria-live="polite" hidden>
+            <div><span>Reading recordings…</span><strong>0%</strong></div>
+            <progress max="1" value="0"></progress>
+          </section>
           <p class="polyviewer-replay-error" role="alert"></p>
           <div>
             <button value="cancel" type="button" data-replay-cancel>Cancel</button>
@@ -258,6 +267,10 @@ export class EditorShell {
       const name = String(data.get("name") ?? "").trim();
       const leaderboard = String(data.get("leaderboard") ?? "").trim();
       const error = replayDialog.querySelector<HTMLElement>(".polyviewer-replay-error");
+      const importProgress = replayDialog.querySelector<HTMLElement>(".polyviewer-import-progress");
+      const importProgressText = importProgress?.querySelector<HTMLElement>("span");
+      const importProgressPercent = importProgress?.querySelector<HTMLElement>("strong");
+      const importProgressBar = importProgress?.querySelector<HTMLProgressElement>("progress");
       if (!recording) {
         if (error) error.textContent = "Paste a PolyTrack recording first.";
         return;
@@ -268,8 +281,30 @@ export class EditorShell {
           submit.disabled = true;
           submit.textContent = "Adding…";
         }
+        if (importProgress) importProgress.hidden = false;
         if (recording.startsWith("[") || leaderboard) {
-          await options.onAddReplays?.(recording, leaderboard || undefined);
+          await options.onAddReplays?.(recording, leaderboard || undefined, (progress) => {
+            const ratio = progress.total > 0 ? progress.completed / progress.total : 0;
+            const percent = Math.round(ratio * 100);
+            if (importProgressBar) {
+              importProgressBar.max = Math.max(1, progress.total);
+              importProgressBar.value = progress.completed;
+              importProgressBar.removeAttribute("aria-busy");
+              if (progress.phase === "reading") importProgressBar.setAttribute("aria-busy", "true");
+            }
+            if (importProgressPercent) importProgressPercent.textContent = progress.phase === "reading" ? "…" : `${percent}%`;
+            if (importProgressText) {
+              if (progress.phase === "reading") importProgressText.textContent = "Reading and checking recordings…";
+              else if (progress.phase === "ready") importProgressText.textContent = `${progress.total.toLocaleString()} recordings ready`;
+              else {
+                const eta = progress.estimatedRemainingMilliseconds;
+                const remaining = eta !== null && progress.completed > 0
+                  ? ` · about ${formatDuration(eta)} left`
+                  : "";
+                importProgressText.textContent = `Adding ${progress.completed.toLocaleString()} / ${progress.total.toLocaleString()}${remaining}`;
+              }
+            }
+          });
         } else {
           options.onAddReplay?.(recording, name || undefined);
         }
@@ -283,6 +318,7 @@ export class EditorShell {
           submit.disabled = false;
           submit.textContent = "Add Replays";
         }
+        if (importProgress && replayDialog.open) importProgress.hidden = true;
       }
     });
     targetSelect.addEventListener("change", () => options.onTargetReplayChange?.(targetSelect.value));
@@ -470,6 +506,13 @@ export class EditorShell {
   #showMasterOpacityValue(percentage: number): void {
     this.#masterOpacityValue.textContent = `${Math.round(percentage)}%`;
   }
+}
+
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.max(1, Math.round(milliseconds / 1_000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${seconds % 60}s`;
 }
 
 function formatStorageSize(bytes: number): string {
