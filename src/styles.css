@@ -562,22 +562,38 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 .polyviewer-point-editor [data-point-action="delete"] { color: #ffb4b4; }
 
 .polyviewer-camera-moves-button {
-  display: none;
+  display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  margin-top: 6px;
-  padding: 9px 10px;
-  border: 1px solid rgb(255 255 255 / 13%);
-  border-radius: 5px;
+  padding: 10px 12px;
+  border: 1px solid rgb(89 224 187 / 45%);
+  border-radius: 6px;
   color: white;
-  background: rgb(255 255 255 / 7%);
+  background: linear-gradient(110deg, rgb(31 139 125 / 92%), rgb(72 76 177 / 92%));
+  box-shadow: 0 8px 24px rgb(9 28 46 / 28%);
+  font-family: "Forced Square", system-ui, sans-serif;
+  text-align: left;
   cursor: pointer;
-  transition: transform 140ms cubic-bezier(.23, 1, .32, 1), background-color 140ms ease;
+  transition: transform 140ms cubic-bezier(.23, 1, .32, 1), filter 140ms ease;
 }
-.polyviewer-shell.is-active .polyviewer-camera-moves-button { display: flex; }
-.polyviewer-camera-moves-button small { color: rgb(255 255 255 / 48%); font-size: 9px; }
+.polyviewer-camera-moves-button > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.polyviewer-camera-moves-button strong { font-size: 12px; font-weight: 600; }
+.polyviewer-camera-moves-button small { color: rgb(255 255 255 / 68%); font: 10px/1.2 system-ui, sans-serif; }
+.polyviewer-camera-moves-icon {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 12%);
+}
+.polyviewer-camera-moves-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .polyviewer-camera-moves-button:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  .polyviewer-camera-moves-button:hover { filter: brightness(1.1); }
+}
 
 .polyviewer-camera-move-dialog {
   width: min(560px, calc(100vw - 24px));
@@ -593,10 +609,9 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 }
 .polyviewer-camera-move-dialog::backdrop { background: rgb(0 0 0 / 68%); backdrop-filter: blur(3px); }
 .polyviewer-camera-move-dialog [hidden] { display: none !important; }
-.polyviewer-camera-move-dialog form { display: grid; gap: 16px; padding: 18px; }
+.polyviewer-camera-move-dialog form { display: grid; gap: 12px; padding: 18px; }
 .polyviewer-camera-move-dialog header { display: flex; justify-content: space-between; gap: 16px; }
-.polyviewer-camera-move-dialog header div,
-.polyviewer-camera-move-dialog section > div:first-child { display: grid; gap: 4px; }
+.polyviewer-camera-move-dialog header div { display: grid; gap: 4px; }
 .polyviewer-camera-move-dialog header strong { font: 18px/1.1 "Forced Square", system-ui, sans-serif; }
 .polyviewer-camera-move-dialog small { color: rgb(255 255 255 / 55%); font: 11px/1.35 system-ui, sans-serif; }
 .polyviewer-camera-move-dialog header button {
@@ -609,7 +624,45 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   cursor: pointer;
 }
 .polyviewer-camera-move-save,
-.polyviewer-camera-move-load { display: grid; gap: 11px; }
+.polyviewer-camera-move-load {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid rgb(255 255 255 / 11%);
+  border-radius: 7px;
+  background: rgb(4 8 24 / 23%);
+}
+.polyviewer-camera-move-save { border-color: rgb(73 220 178 / 28%); }
+.polyviewer-camera-move-load { border-color: rgb(139 124 255 / 28%); }
+.polyviewer-camera-move-heading { display: flex; align-items: center; gap: 10px; }
+.polyviewer-camera-move-heading > div { display: grid; gap: 3px; min-width: 0; }
+.polyviewer-camera-move-heading > div > span {
+  color: rgb(255 255 255 / 48%);
+  font: 9px/1 system-ui, sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.polyviewer-camera-move-heading strong { font: 14px/1.1 "Forced Square", system-ui, sans-serif; }
+.polyviewer-camera-move-heading-icon {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 6px;
+}
+.polyviewer-camera-move-save .polyviewer-camera-move-heading-icon { color: #8df1ce; background: rgb(73 220 178 / 12%); }
+.polyviewer-camera-move-load .polyviewer-camera-move-heading-icon { color: #b9adff; background: rgb(139 124 255 / 12%); }
+.polyviewer-camera-move-heading-icon svg,
+.polyviewer-camera-move-dialog section button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .polyviewer-camera-move-dialog label { display: grid; gap: 5px; color: rgb(255 255 255 / 68%); font-size: 11px; }
 .polyviewer-camera-move-dialog input[type="text"],
 .polyviewer-camera-move-dialog input:not([type]),
@@ -622,20 +675,27 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   color: white;
   background: rgb(0 0 0 / 24%);
 }
-.polyviewer-camera-move-dialog section > button {
+.polyviewer-camera-move-dialog [data-camera-move-export],
+.polyviewer-camera-move-dialog [data-camera-move-choose],
+.polyviewer-camera-move-dialog [data-camera-move-import] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
   padding: 10px 12px;
   border: 0;
   border-radius: 5px;
   color: white;
-  background: var(--pv-blue, #4b7dff);
   cursor: pointer;
   transition: transform 140ms cubic-bezier(.23, 1, .32, 1), opacity 140ms ease;
 }
-.polyviewer-camera-move-dialog section > button:active { transform: scale(.97); }
-.polyviewer-camera-move-dialog section > button:disabled { cursor: not-allowed; opacity: .38; }
-.polyviewer-camera-move-divider { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 9px; color: rgb(255 255 255 / 35%); font-size: 10px; }
-.polyviewer-camera-move-divider::before,
-.polyviewer-camera-move-divider::after { content: ""; height: 1px; background: rgb(255 255 255 / 10%); }
+.polyviewer-camera-move-dialog [data-camera-move-export] { background: #238f78; }
+.polyviewer-camera-move-dialog [data-camera-move-choose],
+.polyviewer-camera-move-dialog [data-camera-move-import] { background: #6557d8; }
+.polyviewer-camera-move-dialog section button:active { transform: scale(.97); }
+.polyviewer-camera-move-dialog section button:disabled { cursor: not-allowed; opacity: .38; }
+.polyviewer-camera-move-import-options { display: grid; gap: 11px; }
 .polyviewer-camera-move-summary,
 .polyviewer-camera-move-warning { padding: 10px; border-radius: 5px; }
 .polyviewer-camera-move-summary { display: grid; gap: 3px; border: 1px solid rgb(93 213 164 / 30%); background: rgb(93 213 164 / 9%); }

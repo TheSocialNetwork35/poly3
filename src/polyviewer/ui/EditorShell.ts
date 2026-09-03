@@ -80,7 +80,6 @@ export class EditorShell {
       </div>
       <button class="polyviewer-reset-camera" type="button">Reset Camera to Normal <kbd>R</kbd></button>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
-      <button class="polyviewer-camera-moves-button" type="button">Camera Moves <small>Save / Load</small></button>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
         <label>Time <input type="number" min="0" step="0.001" inputmode="decimal" data-point-time></label>
@@ -93,6 +92,15 @@ export class EditorShell {
     `;
     this.#rightStack = document.createElement("div");
     this.#rightStack.className = "polyviewer-right-stack";
+    const cameraMoveButton = document.createElement("button");
+    cameraMoveButton.className = "polyviewer-camera-moves-button";
+    cameraMoveButton.type = "button";
+    cameraMoveButton.innerHTML = `
+      <span class="polyviewer-camera-moves-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M7 7h11m0 0-3-3m3 3-3 3M17 17H6m0 0 3 3m-3-3 3-3"/></svg>
+      </span>
+      <span><strong>Camera Import / Export</strong><small>Save or reuse a camera path</small></span>
+    `;
     this.#replayPanel = document.createElement("aside");
     this.#replayPanel.className = "polyviewer-replay-panel";
     this.#replayPanel.innerHTML = `
@@ -166,7 +174,8 @@ export class EditorShell {
           <div><dt>Clean Preview</dt><dd>F8</dd></div>
         </dl>
       </details>`;
-    this.#rightStack.append(this.#replayPanel, this.#shortcutSheet);
+    this.#rightStack.append(cameraMoveButton, this.#replayPanel, this.#shortcutSheet);
+    cameraMoveButton.addEventListener("click", () => options.onOpenCameraMoves?.());
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
     renderButton.addEventListener("click", () => options.onOpenRender?.());
     this.element.querySelector(".polyviewer-reset-camera")?.addEventListener(
@@ -237,10 +246,6 @@ export class EditorShell {
     this.element.querySelector(".polyviewer-add-point")?.addEventListener(
       "click",
       () => options.onAddCameraPoint?.(),
-    );
-    this.element.querySelector(".polyviewer-camera-moves-button")?.addEventListener(
-      "click",
-      () => options.onOpenCameraMoves?.(),
     );
     pointTime.addEventListener("change", () => {
       if (!this.#selectedPointId) return;

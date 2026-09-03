@@ -26,6 +26,7 @@ export class CameraMovePanel {
   #warning: HTMLElement;
   #acknowledge: HTMLInputElement;
   #status: HTMLElement;
+  #importOptions: HTMLElement;
   #playheadMicroseconds = 0;
   #timelineDurationMicroseconds = 0;
 
@@ -36,36 +37,43 @@ export class CameraMovePanel {
     this.element.innerHTML = `
       <form method="dialog">
         <header>
-          <div><strong>Camera Moves</strong><small>Reuse an exact camera path in another PolyViewer project.</small></div>
+          <div><strong>Camera Import / Export</strong><small>Save this camera path or bring one into the current project.</small></div>
           <button type="button" data-camera-move-close aria-label="Close">×</button>
         </header>
         <section class="polyviewer-camera-move-save">
-          <div><strong>Save this camera move</strong><small>Includes every Camera Point, mode, rotation, FOV, timing and target reference.</small></div>
-          <label>Move name <input name="moveName" maxlength="80" value="My Camera Move"></label>
-          <button type="button" data-camera-move-export>Download .polycam.json</button>
-        </section>
-        <div class="polyviewer-camera-move-divider"><span>or</span></div>
-        <section class="polyviewer-camera-move-load">
-          <div><strong>Use a saved camera move</strong><small>Select the file, check its car targets, then import.</small></div>
-          <input data-camera-move-file type="file" accept=".json,.polycam.json,application/json" hidden>
-          <button type="button" data-camera-move-choose>Choose Camera Move</button>
-          <div class="polyviewer-camera-move-summary" hidden></div>
-          <div class="polyviewer-camera-move-warning" hidden></div>
-          <label class="polyviewer-camera-move-ack" hidden>
-            <input type="checkbox"> I am using the same map, or I understand that world-space cameras may need repositioning.
-          </label>
-          <div class="polyviewer-camera-move-mappings" hidden>
-            <strong>Connect camera targets</strong>
-            <small>PolyViewer matched Main Replay and unique player names automatically. Change anything that is wrong.</small>
-            <div></div>
+          <div class="polyviewer-camera-move-heading">
+            <span class="polyviewer-camera-move-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 16v4h14v-4"/></svg></span>
+            <div><span>Export</span><strong>Save this camera path</strong><small>Downloads every Camera Point, mode, rotation, FOV, timing and car target.</small></div>
           </div>
-          <label>Import behavior
-            <select name="importStrategy">
-              <option value="replace">Replace current Camera Points</option>
-              <option value="append">Add at current playhead</option>
-            </select>
-          </label>
-          <button type="button" data-camera-move-import disabled>Import Camera Move</button>
+          <label>Move name <input name="moveName" maxlength="80" value="My Camera Move"></label>
+          <button type="button" data-camera-move-export><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 16v4h14v-4"/></svg> Export Camera Move</button>
+        </section>
+        <section class="polyviewer-camera-move-load">
+          <div class="polyviewer-camera-move-heading">
+            <span class="polyviewer-camera-move-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V9m0 0 4 4m-4-4-4 4M5 8V4h14v4"/></svg></span>
+            <div><span>Import</span><strong>Use a saved camera path</strong><small>Choose a .polycam.json file, then connect its cars.</small></div>
+          </div>
+          <input data-camera-move-file type="file" accept=".json,.polycam.json,application/json" hidden>
+          <button type="button" data-camera-move-choose><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21V9m0 0 4 4m-4-4-4 4M5 8V4h14v4"/></svg> Choose Camera Move File</button>
+          <div class="polyviewer-camera-move-import-options" hidden>
+            <div class="polyviewer-camera-move-summary" hidden></div>
+            <div class="polyviewer-camera-move-warning" hidden></div>
+            <label class="polyviewer-camera-move-ack" hidden>
+              <input type="checkbox"> I am using the same map, or I understand that world-space cameras may need repositioning.
+            </label>
+            <div class="polyviewer-camera-move-mappings" hidden>
+              <strong>Connect camera targets</strong>
+              <small>PolyViewer matched Main Replay and unique player names automatically. Change anything that is wrong.</small>
+              <div></div>
+            </div>
+            <label>Import behavior
+              <select name="importStrategy">
+                <option value="replace">Replace current Camera Points</option>
+                <option value="append">Add at current playhead</option>
+              </select>
+            </label>
+            <button type="button" data-camera-move-import disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21V9m0 0 4 4m-4-4-4 4M5 8V4h14v4"/></svg> Import Camera Move</button>
+          </div>
           <p class="polyviewer-camera-move-status" role="status" aria-live="polite"></p>
         </section>
       </form>
@@ -77,7 +85,8 @@ export class CameraMovePanel {
     const warning = this.element.querySelector<HTMLElement>(".polyviewer-camera-move-warning");
     const acknowledge = this.element.querySelector<HTMLInputElement>(".polyviewer-camera-move-ack input");
     const status = this.element.querySelector<HTMLElement>(".polyviewer-camera-move-status");
-    if (!fileInput || !importButton || !mappingList || !summary || !warning || !acknowledge || !status) {
+    const importOptions = this.element.querySelector<HTMLElement>(".polyviewer-camera-move-import-options");
+    if (!fileInput || !importButton || !mappingList || !summary || !warning || !acknowledge || !status || !importOptions) {
       throw new Error("Failed to construct Camera Move panel.");
     }
     this.#fileInput = fileInput;
@@ -87,6 +96,7 @@ export class CameraMovePanel {
     this.#warning = warning;
     this.#acknowledge = acknowledge;
     this.#status = status;
+    this.#importOptions = importOptions;
     this.element.querySelector("[data-camera-move-close]")?.addEventListener("click", () => this.element.close());
     this.element.querySelector("form")?.addEventListener("submit", (event) => event.preventDefault());
     this.element.querySelector("[data-camera-move-export]")?.addEventListener("click", () => this.#export());
@@ -110,6 +120,7 @@ export class CameraMovePanel {
     this.#playheadMicroseconds = playheadMicroseconds;
     this.#timelineDurationMicroseconds = timelineDurationMicroseconds;
     this.#document = null;
+    this.#importOptions.hidden = true;
     this.#fileInput.value = "";
     this.#mappingList.replaceChildren();
     this.#summary.hidden = true;
@@ -155,6 +166,7 @@ export class CameraMovePanel {
       this.#status.textContent = "Camera Move checked successfully.";
     } catch (error) {
       this.#document = null;
+      this.#importOptions.hidden = true;
       this.#summary.hidden = true;
       this.#importButton.disabled = true;
       this.#status.textContent = error instanceof Error ? error.message : "The Camera Move could not be opened.";
@@ -162,6 +174,7 @@ export class CameraMovePanel {
   }
 
   #renderDocument(document: CameraMoveDocument): void {
+    this.#importOptions.hidden = false;
     const modes = [...new Set(document.points.map((point) => point.state.mode === "free" ? "fixed" : point.state.mode))];
     this.#summary.hidden = false;
     this.#summary.replaceChildren();
