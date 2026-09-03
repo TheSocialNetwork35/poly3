@@ -72,6 +72,27 @@ export class CameraKeyframeStore {
     this.#notify();
   }
 
+  replaceAll(points: readonly CameraKeyframe[]): void {
+    const next = validateImportedPoints(points, false);
+    this.#points = next;
+    this.#sortAndNotify();
+  }
+
+  appendAll(points: readonly CameraKeyframe[], startMicroseconds: number): CameraKeyframe[] {
+    requireTime(startMicroseconds);
+    const imported = validateImportedPoints(points, true);
+    if (imported.length === 0) return [];
+    const firstTime = imported[0]!.timeMicroseconds;
+    const shifted = imported.map((point) => ({
+      ...point,
+      id: createStableId(),
+      timeMicroseconds: startMicroseconds + point.timeMicroseconds - firstTime,
+    }));
+    this.#points.push(...shifted);
+    this.#sortAndNotify();
+    return shifted;
+  }
+
   subscribe(listener: (points: readonly CameraKeyframe[]) => void): () => void {
     this.#listeners.add(listener);
     listener(this.#points);
@@ -115,4 +136,22 @@ function requireTime(value: number): void {
 
 function createStableId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `camera-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function validateImportedPoints(points: readonly CameraKeyframe[], allowEmpty: boolean): CameraKeyframe[] {
+  if (!Array.isArray(points) || (!allowEmpty && points.length === 0)) {
+    throw new Error("A Camera Move must contain at least one Camera Point.");
+  }
+  const copy = points.map((point) => {
+    requireTime(point.timeMicroseconds);
+    if (!point.id || point.interpolation !== "smooth") {
+      throw new Error("A Camera Move contains an invalid Camera Point.");
+    }
+    return { ...structuredClone(point), state: migrateCameraState(point.state) };
+  });
+  if (new Set(copy.map((point) => point.id)).size !== copy.length) {
+    throw new Error("A Camera Move contains duplicate Camera Point IDs.");
+  }
+  copy.sort((a, b) => a.timeMicroseconds - b.timeMicroseconds);
+  return copy;
 }

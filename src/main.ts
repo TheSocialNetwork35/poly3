@@ -11,6 +11,7 @@ import { installPackedReplayStoreFactory } from "./polyviewer/replay/PackedRepla
 import { SceneEvaluator } from "./polyviewer/scene/SceneEvaluator";
 import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
+import { CameraMovePanel } from "./polyviewer/ui/CameraMovePanel";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 import { RenderPanel } from "./polyviewer/ui/RenderPanel";
 
@@ -22,6 +23,17 @@ let cameraController: FreeCameraController | null = null;
 let selectedCameraPointId: string | null = null;
 let shell: EditorShell;
 let videoExporter: VideoExporter | null = null;
+let replayBridge: ReplayBridge | null = null;
+const cameraMovePanel = new CameraMovePanel({
+  onImport: (points, strategy) => {
+    replayBridge?.pause();
+    const imported = strategy === "replace"
+      ? (cameraPoints.replaceAll(points), cameraPoints.points)
+      : cameraPoints.appendAll(points, masterTimeline.timeMicroseconds);
+    const first = imported[0];
+    if (first) selectCameraPoint(first.id);
+  },
+});
 const cameraEditAuthority = new CameraEditAuthority();
 const renderPanel = new RenderPanel({
   onRender: (settings, signal, includeAudio, onProgress, onPreparationProgress, onAudioProgress, onAudioWarning) => {
@@ -73,8 +85,13 @@ shell = new EditorShell({
     cameraEditAuthority.beginManualEdit();
     cameraController?.resetToNormal();
   },
+  onOpenCameraMoves: () => cameraMovePanel.open(
+    cameraPoints.points,
+    replayBridge?.replays ?? [],
+    masterTimeline.timeMicroseconds,
+    masterTimeline.durationMicroseconds,
+  ),
 });
-let replayBridge: ReplayBridge | null = null;
 let replayWasConnected = false;
 let replayDurationMicroseconds = 0;
 let nativeCameraWasAvailable = false;

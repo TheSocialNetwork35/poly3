@@ -26,6 +26,7 @@ interface EditorShellOptions {
   onToggleCleanPreview?: () => void;
   onOpenRender?: () => void;
   onResetCamera?: () => void;
+  onOpenCameraMoves?: () => void;
 }
 
 export class EditorShell {
@@ -79,6 +80,7 @@ export class EditorShell {
       </div>
       <button class="polyviewer-reset-camera" type="button">Reset Camera to Normal <kbd>R</kbd></button>
       <button class="polyviewer-add-point" type="button">＋ Add Camera Point</button>
+      <button class="polyviewer-camera-moves-button" type="button">Camera Moves <small>Save / Load</small></button>
       <section class="polyviewer-point-editor" aria-label="Selected Camera Point">
         <strong>Camera Point</strong>
         <label>Time <input type="number" min="0" step="0.001" inputmode="decimal" data-point-time></label>
@@ -235,6 +237,10 @@ export class EditorShell {
     this.element.querySelector(".polyviewer-add-point")?.addEventListener(
       "click",
       () => options.onAddCameraPoint?.(),
+    );
+    this.element.querySelector(".polyviewer-camera-moves-button")?.addEventListener(
+      "click",
+      () => options.onOpenCameraMoves?.(),
     );
     pointTime.addEventListener("change", () => {
       if (!this.#selectedPointId) return;

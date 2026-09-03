@@ -54,4 +54,20 @@ describe("CameraKeyframeStore", () => {
     expect(store.points).toHaveLength(1);
     expect(store.points[0]?.state.fov).toBe(45);
   });
+
+  it("replaces atomically and appends a reusable move at the playhead", () => {
+    const store = new CameraKeyframeStore();
+    store.add(99, cameraState);
+    const imported = [
+      { id: "saved-a", timeMicroseconds: 2_000_000, state: cameraState, interpolation: "smooth" as const },
+      { id: "saved-b", timeMicroseconds: 5_000_000, state: { ...cameraState, fov: 50 }, interpolation: "smooth" as const },
+    ];
+    store.replaceAll(imported);
+    expect(store.points.map((point) => point.id)).toEqual(["saved-a", "saved-b"]);
+
+    const appended = store.appendAll(imported, 10_000_000);
+    expect(appended.map((point) => point.timeMicroseconds)).toEqual([10_000_000, 13_000_000]);
+    expect(appended[0]!.id).not.toBe("saved-a");
+    expect(store.points).toHaveLength(4);
+  });
 });
