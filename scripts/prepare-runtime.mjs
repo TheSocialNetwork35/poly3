@@ -1,3 +1,4 @@
+import { CarPatternCache, ReplayWorkerPool } from "./runtime-resources.mjs";
 import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -205,6 +206,21 @@ bridgedBundle = bridgedBundle
   .replace(particleUpdateAnchor, particleUpdateReplacement)
   .replace(skidVisibilityAnchor, skidVisibilityReplacement)
   .replace(particleVisibilityAnchor, particleVisibilityReplacement);
+
+// Exact anchors keep resource ownership changes tied to the audited 0.6.2 runtime.
+const resourcePatches = [
+  ['We=function(e,t){if(null==B.patterns)', 'We=function(e,t){return window.__POLYVIEWER_PATTERN_CACHE__.acquire(e,t,()=>{if(null==B.patterns)', 1],
+  ['return i},Ve=function(e){', 'return i})},Ve=function(e){', 1],
+  ['(0,l.gn)(this,ke,"f").dispose()', 'window.__POLYVIEWER_PATTERN_CACHE__.release((0,l.gn)(this,ke,"f"))', 3],
+  ['new Worker("simulation_worker.bundle.js")', 'new window.__POLYVIEWER_WORKER_POOL__("simulation_worker.bundle.js")', 1],
+  ['throw new Error("Simulation error: "+e.message)', 'this.polyviewerSimulationError=(0,r.gn)(this,h,"f").failure??new Error("Simulation error: "+e.message)', 1],
+  ['pvTick=()=>{try{if(pvSignal?.aborted)', 'pvTick=()=>{try{if(pvWorker.polyviewerSimulationError)throw pvWorker.polyviewerSimulationError;if(pvSignal?.aborted)', 1],
+];
+for (const [anchor, replacement, count] of resourcePatches) {
+  if (bridgedBundle.split(anchor).length - 1 !== count) throw new Error(`Resource patch anchor mismatch: ${anchor}`);
+  bridgedBundle = bridgedBundle.replaceAll(anchor, replacement);
+}
+bridgedBundle = `window.__POLYVIEWER_PATTERN_CACHE__=new (${CarPatternCache.toString()})();window.__POLYVIEWER_WORKER_POOL__=${ReplayWorkerPool.toString()};\n` + bridgedBundle;
 
 const proxiedBundle = bridgedBundle
   .replaceAll(upstreamApiBase, localApiBase)

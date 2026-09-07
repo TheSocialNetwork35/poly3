@@ -123,6 +123,9 @@ describe("DeterministicFrameRenderer", () => {
 function createRenderer() {
   return {
     canvas: {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      getContext: vi.fn(() => null),
       toBlob(callback: (blob: Blob | null) => void) { callback(new Blob(["frame"])); },
     },
     polyviewerBeginCapture: vi.fn(),
