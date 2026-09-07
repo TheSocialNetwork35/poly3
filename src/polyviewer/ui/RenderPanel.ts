@@ -26,6 +26,7 @@ export class RenderPanel {
   #status: HTMLElement;
   #submit: HTMLButtonElement;
   #preparationStartedAt = 0;
+  #availableWorkers = Math.max(1, navigator.hardwareConcurrency || 2);
 
   constructor(options: RenderPanelOptions) {
     this.element = document.createElement("dialog");
@@ -45,6 +46,13 @@ export class RenderPanel {
         </label>
         <label>Start time (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
         <label>End time (seconds)<input name="end" type="number" min="0" step="0.001" required></label>
+        <label class="polyviewer-render-workers">CPU workers for preparation
+          <select name="workers" aria-describedby="polyviewer-workers-help">
+            <option value="0">Automatic (${Math.max(1, Math.min(4, this.#availableWorkers - 1))} workers)</option>
+            ${Array.from({ length: this.#availableWorkers }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("")}
+          </select>
+        </label>
+        <p id="polyviewer-workers-help" class="polyviewer-render-help">More workers can prepare cars faster, but use more memory. ${this.#availableWorkers} logical CPU cores reported by your browser.</p>
         <label class="polyviewer-render-option"><input name="shadows" type="checkbox" checked> Car shadows</label>
         <label class="polyviewer-render-option"><input name="particles" type="checkbox" checked> Particles (dust and smoke)</label>
         <label class="polyviewer-render-option"><input name="skidmarks" type="checkbox" checked> Tire marks</label>
@@ -62,6 +70,16 @@ export class RenderPanel {
     if (!status || !submit) throw new Error("Failed to construct Render panel.");
     this.#status = status;
     this.#submit = submit;
+    const workers = this.element.querySelector<HTMLSelectElement>('[name="workers"]');
+    if (workers) {
+      try {
+        const saved = Number(localStorage.getItem("polyviewer.simulationWorkers") ?? 0);
+        if (Number.isSafeInteger(saved) && saved >= 0 && saved <= this.#availableWorkers) workers.value = String(saved);
+      } catch { /* Storage can be unavailable in private sessions. */ }
+    }
+    this.element.addEventListener("cancel", (event) => {
+      if (this.#controller) { event.preventDefault(); this.#controller.abort(); }
+    });
     this.element.querySelector("[data-render-cancel]")?.addEventListener("click", () => {
       if (this.#controller) this.#controller.abort();
       else this.element.close();
@@ -96,6 +114,7 @@ export class RenderPanel {
     const resolutionName = String(data.get("resolution")) as keyof typeof RESOLUTIONS;
     const resolution = RESOLUTIONS[resolutionName];
     const fps = Number(data.get("fps"));
+    const simulationWorkers = Number(data.get("workers"));
     const startMicroseconds = Math.round(Number(data.get("start")) * 1_000_000);
     const endMicroseconds = Math.round(Number(data.get("end")) * 1_000_000);
     const includeAudio = data.get("audio") === "on";
@@ -112,14 +131,22 @@ export class RenderPanel {
       this.#status.textContent = "Choose a valid range inside the replay (Start must be before End).";
       return;
     }
+    if (!Number.isSafeInteger(simulationWorkers) || simulationWorkers < 0 || simulationWorkers > this.#availableWorkers) {
+      this.#status.textContent = "Choose a valid number of preparation workers.";
+      return;
+    }
+    try { localStorage.setItem("polyviewer.simulationWorkers", String(simulationWorkers)); } catch { /* Optional preference. */ }
     this.#controller = new AbortController();
     this.#preparationStartedAt = performance.now();
     this.#submit.disabled = true;
+    const inputs = [...form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")];
+    inputs.forEach(input => { input.disabled = true; });
     try {
       const result = await options.onRender({
         width: resolution[0],
         height: resolution[1],
         fps,
+        simulationWorkers,
         startMicroseconds,
         endMicroseconds,
         carShadows,
@@ -146,6 +173,7 @@ export class RenderPanel {
       this.#controller = null;
       this.#preparationStartedAt = 0;
       this.#submit.disabled = false;
+      inputs.forEach(input => { input.disabled = false; });
     }
   }
 

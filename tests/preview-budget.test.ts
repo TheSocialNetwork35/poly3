@@ -11,7 +11,7 @@ describe("large replay preview budget", () => {
     expect(runtimePatch).toContain("polyviewerPreviewVisible");
     expect(runtimePatch).toContain("pvEnabled.slice(0,pvReplay.previewLimit)");
     expect(runtimePatch).not.toContain("polyviewerSetAdaptiveQuality");
-    expect(runtimePatch).toContain("pvReplay.simulationConcurrency=20");
+    expect(runtimePatch).toContain("pvReplay.simulationConcurrency=Math.max(1,pvWorkers*2)");
     expect(runtimePatch).toContain("pvReplay.syncPreviewSimulations=");
   });
 
@@ -37,7 +37,7 @@ describe("large replay preview budget", () => {
     expect(runtimePatch).toContain("polyviewerRuntimeEntry:null");
     expect(runtimePatch).toContain("const pvDeactivate=");
     expect(runtimePatch).toContain("const pvBuildSampleFrames=");
-    expect(runtimePatch).toContain("sampleFrames:[...pvSampleFrames]");
+    expect(runtimePatch).toContain("sampleFrames:pvSampleFrames");
   });
 
   it("virtualizes the replay controls instead of mounting 2,000 editor rows", () => {

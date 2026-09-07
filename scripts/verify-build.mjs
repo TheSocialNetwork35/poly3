@@ -46,7 +46,7 @@ if (!bundle.includes("pvReplay.previewLimit=20") || !bundle.includes("pvReplay.s
   || !bundle.includes("a?.setRenderMode?.(!1)")) {
   throw new Error("The production bundle does not enforce the 20-car preview budget and all-car render mode.");
 }
-if (!bundle.includes("pvReplay.simulationConcurrency=20")
+if (!bundle.includes("pvReplay.simulationConcurrency=Math.max(1,pvWorkers*2)")
   || !bundle.includes("pvReplay.syncPreviewSimulations=")
   || !bundle.includes("pvReplay.prepareRender=")
   || !bundle.includes('polyviewerSimulationState:"idle"')
@@ -56,7 +56,7 @@ if (!bundle.includes("pvReplay.simulationConcurrency=20")
 if (!bundle.includes("polyviewerRuntimeEntry:null")
   || !bundle.includes("const pvDeactivate=")
   || !bundle.includes("const pvBuildSampleFrames=")
-  || !bundle.includes("sampleFrames:[...pvSampleFrames]")) {
+  || !bundle.includes("sampleFrames:pvSampleFrames")) {
   throw new Error("The production bundle does not contain lazy car activation and sampled render replay storage.");
 }
 if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyviewerHistoryEnabled")
@@ -66,8 +66,10 @@ if (bundle.includes("polyviewerSetAdaptiveQuality") || bundle.includes("polyview
 if (bundle.includes("supports up to 20 simultaneous replays")) {
   throw new Error("The removed 20-car runtime ceiling remains in the production bundle.");
 }
-if (!bundle.includes("time:new bt.A(pvReplay.durationFrames)")
-  || !bundle.includes("pvWorker.startCar(pvCreated.id,new bt.A(pvReplay.durationFrames))")
+if (!bundle.includes("pvReplay.renderEndFrame=pvPlan.targetFrame")
+  || !bundle.includes("polyviewerSetSimulationWorkers(pvSettings.simulationWorkers??0)")
+  || !bundle.includes("time:new bt.A(pvReplay.durationFrames)")
+  || !bundle.includes("pvWorker.startCar(pvCreated.id,new bt.A(pvTargetFrame))")
   || bundle.includes("durationOverrideFrames")) {
   throw new Error("Imported leaderboard frame metadata can still alter the authoritative shot duration.");
 }

@@ -5,7 +5,7 @@ declare global {
     __POLYTRACK_062__?: PolyTrackBridge;
     __POLYVIEWER_INPUT_ACTIVE__: boolean;
     __POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?: (options?: {
-      sampleFrames?: number[];
+      sampleFrames?: number[] | ReadonlySet<number>;
     }) => PolyViewerPackedReplayStore;
   }
 
@@ -73,6 +73,7 @@ declare global {
 
   interface PolyViewerReplayRenderPreparation {
     fps: number;
+    simulationWorkers?: number;
     startMicroseconds: number;
     endMicroseconds: number;
   }

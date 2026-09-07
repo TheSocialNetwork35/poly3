@@ -77,6 +77,41 @@ describe("native replay worker routing", () => {
     expect(FakeWorker.instances).toHaveLength(1);
   });
 
+
+  it("uses eight workers when requested on an eight-core browser", () => {
+    const p = pool(false, 8);
+    expect(p.setConcurrency(8)).toBe(8);
+    for (let id = 0; id < 16; id++) p.postMessage({ messageType: 3, carId: id });
+    expect(FakeWorker.instances).toHaveLength(8);
+    for (const worker of FakeWorker.instances) {
+      expect(worker.postMessage.mock.calls.filter(([m]) => m.messageType === 3)).toHaveLength(2);
+    }
+  });
+
+  it("drains active workers safely when lowering the limit and frees idle workers", () => {
+    const p = pool(false, 8);
+    p.setConcurrency(8);
+    for (let id = 0; id < 8; id++) p.postMessage({ messageType: 3, carId: id });
+    p.setConcurrency(2);
+    for (const worker of FakeWorker.instances) expect(worker.terminate).not.toHaveBeenCalled();
+    for (let id = 2; id < 8; id++) p.postMessage({ messageType: 4, carId: id });
+    for (const worker of FakeWorker.instances.slice(2)) expect(worker.terminate).toHaveBeenCalledOnce();
+    p.postMessage({ messageType: 3, carId: 99 });
+    expect(FakeWorker.instances).toHaveLength(8);
+    expect(FakeWorker.instances[0]!.postMessage).toHaveBeenLastCalledWith({ messageType: 3, carId: 99 });
+    p.postMessage({ messageType: 4, carId: 1 });
+    p.setConcurrency(1);
+    expect(FakeWorker.instances[1]!.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("validates overrides and never parallelizes realtime physics", () => {
+    const p = pool(false, 8);
+    for (const invalid of [-1, 9, 1.5, NaN]) expect(() => p.setConcurrency(invalid)).toThrow(/worker count/);
+    expect(p.setConcurrency(0)).toBe(4);
+    const realtime = pool(true, 8);
+    expect(realtime.setConcurrency(8)).toBe(1);
+  });
+
   it("forwards native result buffers unchanged and exposes worker failure", () => {
     const p = pool();
     const onMessage = vi.fn();

@@ -1,4 +1,4 @@
-import { CarPatternCache, ReplayWorkerPool } from "./runtime-resources.mjs";
+import { CarPatternCache, ReplayWorkerPool, createReplayRenderPlan } from "./runtime-resources.mjs";
 import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,14 +66,15 @@ const replayManagementBridge = `;{
     pvEntry.polyviewerVisible=!0;pvEntry.polyviewerPreviewVisible=!0;pvEntry.polyviewerOpacity=1;pvEntry.polyviewerNameTagVisible=!1;pvEntry.polyviewerManaged=!1;pvEntry.polyviewerSimulationState="native";pvEntry.polyviewerRuntimeEntry=pvEntry;pvCatalog.push(pvEntry);
   }
   let pvNextReplayId=1;
-  const pvCreateReplayStore=pvSampleFrames=>{const pvStore=window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?.(pvSampleFrames?{sampleFrames:[...pvSampleFrames]}:void 0);if(!pvStore)throw new Error("PolyViewer replay storage is not ready. Reload once and try again.");return{get polyviewerPackedBytes(){return pvStore.packedBytes},push:pvState=>pvStore.push(pvState),pushPacked:pvBytes=>pvStore.pushPacked(pvBytes),getFrame:pvFrame=>pvStore.getFrame(pvFrame),getLastFrame:()=>new bt.A(pvStore.lastFrame)}};
+  const pvCreateReplayStore=pvSampleFrames=>{const pvStore=window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__?.(pvSampleFrames?{sampleFrames:pvSampleFrames}:void 0);if(!pvStore)throw new Error("PolyViewer replay storage is not ready. Reload once and try again.");return{get polyviewerPackedBytes(){return pvStore.packedBytes},push:pvState=>pvStore.push(pvState),pushPacked:pvBytes=>pvStore.pushPacked(pvBytes),getFrame:pvFrame=>pvStore.getFrame(pvFrame),getLastFrame:()=>new bt.A(pvStore.lastFrame)}};
   const pvRuntime=pvEntry=>pvEntry.polyviewerRuntimeEntry??null;
-  const pvIsReady=pvEntry=>{const pvLive=pvRuntime(pvEntry);return null!=pvLive&&(pvEntry.polyviewerManaged?pvLive.polyviewerSimulationState==="ready":pvLive.replay.getLastFrame().numberOfFrames>=pvReplay.durationFrames)};
+  const pvIsPreparing=()=>pvReplay.renderPreparing||pvReplay.renderPrepared||pvReplay.renderMode;
+  const pvIsReady=pvEntry=>{const pvLive=pvRuntime(pvEntry),pvTarget=pvIsPreparing()?pvReplay.renderEndFrame:pvReplay.durationFrames;if(!pvLive||pvLive.replay.getLastFrame().numberOfFrames<pvTarget)return!1;return !pvIsPreparing()||!pvLive.polyviewerSampleFrames||pvLive.polyviewerSampleFrames===pvReplay.renderSampleFrames||[...pvReplay.renderSampleFrames].every(pvFrame=>pvLive.polyviewerSampleFrames.has(pvFrame))};
   const pvActivate=(pvEntry,pvSampleFrames)=>{if(pvRuntime(pvEntry))return pvRuntime(pvEntry);const pvMain=pvCatalog[0],pvInitialState=pvRuntime(pvMain)?.replay.getFrame(0);if(null==pvInitialState)throw new Error("Main replay start state is unavailable");const pvCar=new U.A(null,pvStart,pvEntry.polyviewerRecording,null,(0,R.gn)(pvOwner,Gp,"f"),(0,R.gn)(pvOwner,Fp,"f"),pvMountains,pvTrack,(0,R.gn)(pvOwner,Np,"f"),(0,R.gn)(pvOwner,Wp,"f"),null);pvCar.setCarStyle(pvEntry.polyviewerCarStyle);pvCar.setNameTag(null,pvEntry.polyviewerName);pvCar.polyviewerNameTagEnabled=pvEntry.polyviewerNameTagVisible===!0;pvCar.setOpacity(pvEntry.polyviewerOpacity);pvCar.setVisible(pvEntry.polyviewerPreviewVisible!==!1);const pvStore=pvCreateReplayStore(pvSampleFrames);pvStore.push(pvInitialState);const pvLive={replay:pvStore,checkpointTimes:[],finishSpeed:null,carId:null,car:pvCar,settings:{...pvEntry.settings},polyviewerId:pvEntry.polyviewerId,polyviewerName:pvEntry.polyviewerName,polyviewerVisible:pvEntry.polyviewerVisible,polyviewerPreviewVisible:pvEntry.polyviewerPreviewVisible,polyviewerOpacity:pvEntry.polyviewerOpacity,polyviewerNameTagVisible:pvEntry.polyviewerNameTagVisible,polyviewerManaged:!0,polyviewerRecording:pvEntry.polyviewerRecording,polyviewerInitialState:pvInitialState,polyviewerSimulationState:"idle",polyviewerSimulationGeneration:0,polyviewerCatalogEntry:pvEntry};pvEntry.polyviewerRuntimeEntry=pvLive;pvEntries.push(pvLive);return pvLive};
   const pvStopSimulation=pvEntry=>{const pvLive=pvRuntime(pvEntry);if(!pvLive?.polyviewerManaged)return;if(null!=pvLive.carId){pvWorker.deleteCar(pvLive.carId);pvLive.carId=null}pvLive.polyviewerSimulationGeneration+=1};
   const pvDeactivate=pvEntry=>{const pvLive=pvRuntime(pvEntry);if(!pvLive?.polyviewerManaged)return;pvStopSimulation(pvEntry);pvLive.car.dispose();const pvIndex=pvEntries.indexOf(pvLive);pvIndex>=0&&pvEntries.splice(pvIndex,1);pvEntry.polyviewerRuntimeEntry=null};
-  const pvStartSimulation=(pvEntry,pvSampleFrames)=>{const pvLive=pvActivate(pvEntry,pvSampleFrames);if(pvLive.polyviewerSimulationState!=="idle")return;const pvGeneration=++pvLive.polyviewerSimulationGeneration,pvStore=pvCreateReplayStore(pvSampleFrames),pvCallback=pvBytes=>{if(pvLive.polyviewerSimulationGeneration!==pvGeneration)return;pvStore.pushPacked(pvBytes);const pvFrame=pvBytes[0]|pvBytes[1]<<8|pvBytes[2]<<16;if(null!=pvLive.carId&&pvFrame>=pvReplay.durationFrames){pvWorker.deleteCar(pvLive.carId);pvLive.carId=null;pvLive.polyviewerSimulationState="ready";pvReplay.refreshPerformance?.()}};pvCallback.polyviewerPacked=!0;const pvCreated=pvWorker.createCar(pvStart,pvMountains.getMountainVertices(),pvMountains.getMountainOffset(),(0,R.gn)(pvOwner,Np,"f"),pvEntry.polyviewerRecording,pvCallback);pvLive.polyviewerInitialState=pvCreated.carState;pvStore.push(pvCreated.carState);pvLive.replay=pvStore;pvLive.carId=pvCreated.id;pvLive.polyviewerSimulationState="simulating";pvWorker.startCar(pvCreated.id,new bt.A(pvReplay.durationFrames))};
-  pvReplay.syncPreviewSimulations=()=>{if(pvReplay.renderPreparing||pvReplay.renderPrepared||pvReplay.renderMode)return;for(const pvEntry of pvCatalog){const pvLive=pvRuntime(pvEntry);if(pvEntry.polyviewerManaged&&pvEntry.polyviewerPreviewVisible)pvStartSimulation(pvEntry);else if(pvEntry.polyviewerManaged&&pvLive)pvDeactivate(pvEntry)}};
+  const pvStartSimulation=(pvEntry,pvSampleFrames,pvTargetFrame=pvReplay.durationFrames)=>{const pvLive=pvActivate(pvEntry,pvSampleFrames);if(pvLive.polyviewerSimulationState!=="idle")return;pvLive.polyviewerTargetFrame=pvTargetFrame;pvLive.polyviewerSampleFrames=pvSampleFrames??null;const pvGeneration=++pvLive.polyviewerSimulationGeneration,pvStore=pvCreateReplayStore(pvSampleFrames),pvCallback=pvBytes=>{if(pvLive.polyviewerSimulationGeneration!==pvGeneration)return;pvStore.pushPacked(pvBytes);const pvFrame=pvBytes[0]|pvBytes[1]<<8|pvBytes[2]<<16;if(null!=pvLive.carId&&pvFrame>=pvLive.polyviewerTargetFrame){pvWorker.deleteCar(pvLive.carId);pvLive.carId=null;pvLive.polyviewerSimulationState="ready";pvReplay.refreshPerformance?.()}};pvCallback.polyviewerPacked=!0;const pvCreated=pvWorker.createCar(pvStart,pvMountains.getMountainVertices(),pvMountains.getMountainOffset(),(0,R.gn)(pvOwner,Np,"f"),pvEntry.polyviewerRecording,pvCallback);pvLive.polyviewerInitialState=pvCreated.carState;pvStore.push(pvCreated.carState);pvLive.replay=pvStore;pvLive.carId=pvCreated.id;pvLive.polyviewerSimulationState="simulating";pvWorker.startCar(pvCreated.id,new bt.A(pvTargetFrame))};
+  pvReplay.syncPreviewSimulations=()=>{if(pvReplay.renderPreparing||pvReplay.renderPrepared||pvReplay.renderMode)return;for(const pvEntry of pvCatalog){const pvLive=pvRuntime(pvEntry);if(pvEntry.polyviewerManaged&&pvEntry.polyviewerPreviewVisible){if(pvLive&&(pvLive.polyviewerSampleFrames||pvLive.polyviewerTargetFrame<pvReplay.durationFrames)){pvStopSimulation(pvEntry);pvLive.polyviewerSimulationState="idle"}pvStartSimulation(pvEntry);}else if(pvEntry.polyviewerManaged&&pvLive)pvDeactivate(pvEntry)}};
   pvReplay.refreshVisibility=()=>{
     const pvEnabled=pvCatalog.filter(pvEntry=>pvEntry.polyviewerVisible!==!1),pvPreview=new Set(pvEnabled.slice(0,pvReplay.previewLimit).map(pvEntry=>pvEntry.polyviewerId)),pvPriority=pvCatalog.find(pvEntry=>pvEntry.polyviewerId===pvReplay.priorityReplayId&&pvEntry.polyviewerVisible!==!1);
     if(!pvReplay.renderMode&&pvPriority&&!pvPreview.has(pvPriority.polyviewerId)){const pvReplace=[...pvPreview].reverse().find(pvId=>pvId!==pvPriority.polyviewerId);pvReplace&&pvPreview.delete(pvReplace),pvPreview.add(pvPriority.polyviewerId)}
@@ -84,9 +85,40 @@ const replayManagementBridge = `;{
   pvReplay.getPerformanceStatus=()=>({...pvReplay.refreshPerformance()});
   pvReplay.beginReplayBatch=()=>{pvReplay.replayBatchDepth+=1};
   pvReplay.endReplayBatch=()=>{pvReplay.replayBatchDepth=Math.max(0,pvReplay.replayBatchDepth-1);if(pvReplay.replayBatchDepth===0)pvReplay.refreshVisibility(),pvReplay.refreshPerformance()};
-  const pvBuildSampleFrames=pvSettings=>{const pvSamples=new Set([0,pvReplay.durationFrames]),pvFps=Math.max(1,Math.round(pvSettings?.fps??60)),pvStartUs=Math.max(0,Math.round(pvSettings?.startMicroseconds??0)),pvEndUs=Math.min(1e3*pvReplay.durationFrames,Math.round(pvSettings?.endMicroseconds??1e3*pvReplay.durationFrames));for(let pvIndex=1;;pvIndex++){const pvUs=Math.floor(pvIndex*1e6/pvFps);if(pvUs>=pvStartUs)break;pvSamples.add(Math.round(pvUs/1e3))}for(let pvIndex=0;;pvIndex++){const pvUs=pvStartUs+Math.floor(pvIndex*1e6/pvFps);if(pvUs>=pvEndUs)break;pvSamples.add(Math.round(pvUs/1e3))}return pvSamples};
-  pvReplay.prepareRender=(pvSettings,pvSignal,pvProgress)=>{if(pvReplay.renderPreparationPromise)return pvReplay.renderPreparationPromise;const pvTargets=pvCatalog.filter(pvEntry=>pvEntry.polyviewerVisible!==!1),pvSamples=pvBuildSampleFrames(pvSettings);pvReplay.renderPreparing=!0;const pvTask=new Promise((pvResolve,pvReject)=>{let pvTimer=null,pvSettled=!1;const pvFinish=pvCallback=>{if(pvSettled)return;pvSettled=!0;null!=pvTimer&&clearInterval(pvTimer);pvSignal?.removeEventListener("abort",pvTick);pvCallback()};const pvTick=()=>{try{if(pvSignal?.aborted)throw new DOMException("Rendering cancelled.","AbortError");const pvReady=pvTargets.filter(pvIsReady).length;pvProgress?.(pvReady,pvTargets.length);if(pvReady===pvTargets.length){pvFinish(pvResolve);return}let pvSlots=pvReplay.simulationConcurrency-pvTargets.filter(pvEntry=>pvRuntime(pvEntry)?.polyviewerSimulationState==="simulating").length;for(const pvEntry of pvTargets)if(pvSlots>0&&pvEntry.polyviewerManaged&&!pvIsReady(pvEntry)&&pvRuntime(pvEntry)?.polyviewerSimulationState!=="simulating")pvStartSimulation(pvEntry,pvSamples),pvSlots-=1}catch(pvError){pvFinish(()=>pvReject(pvError))}};pvSignal?.addEventListener("abort",pvTick,{once:!0});pvTimer=setInterval(pvTick,50);pvTick()});pvReplay.renderPreparationPromise=pvTask.then(()=>{pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!0;pvReplay.refreshPerformance()}).catch(pvError=>{pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!1;for(const pvEntry of pvTargets)pvEntry.polyviewerManaged&&!pvEntry.polyviewerPreviewVisible&&pvDeactivate(pvEntry);pvReplay.syncPreviewSimulations();pvReplay.refreshPerformance();throw pvError}).finally(()=>{pvReplay.renderPreparationPromise=null});return pvReplay.renderPreparationPromise};
-  pvReplay.releaseRenderPreparation=()=>{pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!1;pvReplay.renderMode=!1;pvReplay.refreshVisibility();pvReplay.refreshPerformance()};
+  const pvBuildSampleFrames=pvSettings=>window.__POLYVIEWER_CREATE_RENDER_PLAN__(pvSettings,pvReplay.durationFrames);
+  pvReplay.prepareRender=(pvSettings,pvSignal,pvProgress)=>{
+    if(pvReplay.renderPreparationPromise)return pvReplay.renderPreparationPromise;
+    if(pvSignal?.aborted)return Promise.reject(new DOMException("Rendering cancelled.","AbortError"));
+    const pvTargets=pvCatalog.filter(pvEntry=>pvEntry.polyviewerVisible!==!1),pvPlan=pvBuildSampleFrames(pvSettings),pvSamples=pvPlan.sampleFrames;
+    const pvWorkers=pvWorker.polyviewerSetSimulationWorkers(pvSettings.simulationWorkers??0);
+    pvReplay.simulationConcurrency=Math.max(1,pvWorkers*2);
+    pvReplay.renderEndFrame=pvPlan.targetFrame;pvReplay.renderSampleFrames=pvSamples;pvReplay.renderPreparing=!0;
+    const pvTask=new Promise((pvResolve,pvReject)=>{
+      let pvTimer=null,pvSettled=!1;
+      const pvFinish=pvCallback=>{if(pvSettled)return;pvSettled=!0;null!=pvTimer&&clearInterval(pvTimer);pvSignal?.removeEventListener("abort",pvTick);pvCallback()};
+      const pvTick=()=>{try{
+        if(pvSignal?.aborted)throw new DOMException("Rendering cancelled.","AbortError");
+        const pvReady=pvTargets.filter(pvIsReady).length;pvProgress?.(pvReady,pvTargets.length);
+        if(pvReady===pvTargets.length){pvFinish(pvResolve);return}
+        let pvSlots=pvReplay.simulationConcurrency-pvTargets.filter(pvEntry=>pvRuntime(pvEntry)?.polyviewerSimulationState==="simulating").length;
+        for(const pvEntry of pvTargets)if(pvSlots>0&&pvEntry.polyviewerManaged&&!pvIsReady(pvEntry)&&pvRuntime(pvEntry)?.polyviewerSimulationState!=="simulating")pvStartSimulation(pvEntry,pvSamples,pvPlan.targetFrame),pvSlots-=1;
+      }catch(pvError){pvFinish(()=>pvReject(pvError))}};
+      // Existing dense preview states can be reused and in-flight physics can
+      // change its endpoint without starting again. Sparse incompatible states
+      // must be rebuilt when the FPS/range changes.
+      try{for(const pvEntry of pvTargets){
+        const pvLive=pvRuntime(pvEntry);if(!pvEntry.polyviewerManaged||!pvLive)continue;
+        if(pvIsReady(pvEntry)){if(pvLive.carId!=null){pvLive.polyviewerTargetFrame=pvLive.replay.getLastFrame().numberOfFrames;pvStopSimulation(pvEntry);pvLive.polyviewerSimulationState="ready"}continue}
+        if(pvLive.polyviewerSimulationState==="simulating"&&!pvLive.polyviewerSampleFrames){
+          pvLive.polyviewerTargetFrame=pvPlan.targetFrame;pvWorker.startCar(pvLive.carId,new bt.A(pvPlan.targetFrame));
+        }else{pvStopSimulation(pvEntry);pvLive.polyviewerSimulationState="idle"}
+      }}catch(pvError){pvReject(pvError);return}
+      pvSignal?.addEventListener("abort",pvTick,{once:!0});pvTimer=setInterval(pvTick,50);pvTick();
+    });
+    pvReplay.renderPreparationPromise=pvTask.then(()=>{pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!0;pvReplay.refreshPerformance()}).catch(pvError=>{pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!1;for(const pvEntry of pvTargets)pvEntry.polyviewerManaged&&!pvEntry.polyviewerPreviewVisible&&pvDeactivate(pvEntry);pvWorker.polyviewerSetSimulationWorkers(0);pvReplay.syncPreviewSimulations();pvReplay.refreshPerformance();throw pvError}).finally(()=>{pvReplay.renderPreparationPromise=null});
+    return pvReplay.renderPreparationPromise;
+  };
+  pvReplay.releaseRenderPreparation=()=>{pvWorker.polyviewerSetSimulationWorkers(0);pvReplay.renderPreparing=!1;pvReplay.renderPrepared=!1;pvReplay.renderMode=!1;pvReplay.refreshVisibility();pvReplay.refreshPerformance()};
   pvReplay.setRenderMode=pvRendering=>{const pvEnabled=!!pvRendering;if(pvEnabled&&!pvReplay.refreshPerformance().renderReady)throw new Error("Replay cars are not prepared for rendering yet.");pvReplay.renderMode=pvEnabled;pvEnabled||(pvReplay.renderPrepared=!1);pvReplay.refreshVisibility();pvReplay.refreshPerformance()};
   pvReplay.setPriorityReplay=pvId=>{if(pvCatalog.some(pvEntry=>pvEntry.polyviewerId===pvId)){pvReplay.priorityReplayId=pvId;pvReplay.refreshVisibility();pvReplay.refreshPerformance()}};
   pvReplay.listReplays=()=>pvCatalog.map((pvEntry,pvIndex)=>({id:pvEntry.polyviewerId,name:pvEntry.polyviewerName,visible:pvEntry.polyviewerVisible,opacity:pvEntry.polyviewerOpacity,nameTagVisible:pvEntry.polyviewerNameTagVisible===!0,removable:pvIndex>0}));
@@ -212,15 +244,16 @@ const resourcePatches = [
   ['We=function(e,t){if(null==B.patterns)', 'We=function(e,t){return window.__POLYVIEWER_PATTERN_CACHE__.acquire(e,t,()=>{if(null==B.patterns)', 1],
   ['return i},Ve=function(e){', 'return i})},Ve=function(e){', 1],
   ['(0,l.gn)(this,ke,"f").dispose()', 'window.__POLYVIEWER_PATTERN_CACHE__.release((0,l.gn)(this,ke,"f"))', 3],
+  ['startCar(e,t){const n={messageType:o.StartCar', 'polyviewerSetSimulationWorkers(e){return(0,r.gn)(this,h,"f").setConcurrency(e)}startCar(e,t){const n={messageType:o.StartCar', 1],
   ['new Worker("simulation_worker.bundle.js")', 'new window.__POLYVIEWER_WORKER_POOL__("simulation_worker.bundle.js")', 1],
   ['throw new Error("Simulation error: "+e.message)', 'this.polyviewerSimulationError=(0,r.gn)(this,h,"f").failure??new Error("Simulation error: "+e.message)', 1],
-  ['pvTick=()=>{try{if(pvSignal?.aborted)', 'pvTick=()=>{try{if(pvWorker.polyviewerSimulationError)throw pvWorker.polyviewerSimulationError;if(pvSignal?.aborted)', 1],
+  ['const pvTick=()=>{try{', 'const pvTick=()=>{try{if(pvWorker.polyviewerSimulationError)throw pvWorker.polyviewerSimulationError;', 1],
 ];
 for (const [anchor, replacement, count] of resourcePatches) {
   if (bridgedBundle.split(anchor).length - 1 !== count) throw new Error(`Resource patch anchor mismatch: ${anchor}`);
   bridgedBundle = bridgedBundle.replaceAll(anchor, replacement);
 }
-bridgedBundle = `window.__POLYVIEWER_PATTERN_CACHE__=new (${CarPatternCache.toString()})();window.__POLYVIEWER_WORKER_POOL__=${ReplayWorkerPool.toString()};\n` + bridgedBundle;
+bridgedBundle = `window.__POLYVIEWER_PATTERN_CACHE__=new (${CarPatternCache.toString()})();window.__POLYVIEWER_WORKER_POOL__=${ReplayWorkerPool.toString()};window.__POLYVIEWER_CREATE_RENDER_PLAN__=${createReplayRenderPlan.toString()};\n` + bridgedBundle;
 
 const proxiedBundle = bridgedBundle
   .replaceAll(upstreamApiBase, localApiBase)

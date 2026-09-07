@@ -144,7 +144,9 @@ export class PackedReplayStore {
 
 export function installPackedReplayStoreFactory(): void {
   window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__ = (options) => new PackedReplayStore({
-    sampleFrames: options?.sampleFrames ? new Set(options.sampleFrames) : undefined,
+    // The immutable render schedule is shared by every car in this export.
+    // Retain array compatibility for older callers without copying native Sets.
+    sampleFrames: Array.isArray(options?.sampleFrames) ? new Set(options.sampleFrames) : options?.sampleFrames,
   });
 }
 

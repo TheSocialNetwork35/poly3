@@ -6,6 +6,8 @@ export interface FrameRenderSettings {
   width: number;
   height: number;
   fps: number;
+  /** Parallel simulation workers; 0 or omitted selects Automatic. */
+  simulationWorkers?: number;
   startMicroseconds: number;
   endMicroseconds: number;
   /** Render PolyTrack's native vehicle shadows. Defaults to true. */

@@ -1,11 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PackedReplayStore,
+  installPackedReplayStoreFactory,
   decodeCarStateInto,
   type PackedCarState,
 } from "../src/polyviewer/replay/PackedReplayStore";
 
 describe("PackedReplayStore", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shares one schedule across 1,900 stores and still accepts array callers", () => {
+    vi.stubGlobal("window", {});
+    installPackedReplayStoreFactory();
+    const samples = new Set([0, 2]);
+    const has = vi.spyOn(samples, "has");
+    for (let car = 0; car < 1900; car++) {
+      const store = window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__!({ sampleFrames: samples });
+      store.push(state(0));
+      store.pushPacked(encode(state(1)));
+      store.pushPacked(encode(state(2)));
+      expect(store.packedBytes).toBe(encode(state(2)).byteLength);
+    }
+    expect(has).toHaveBeenCalledTimes(3800);
+    const legacy = window.__POLYVIEWER_CREATE_PACKED_REPLAY_STORE__!({ sampleFrames: [0, 2] });
+    legacy.push(state(0));
+    legacy.pushPacked(encode(state(1)));
+    expect(legacy.packedBytes).toBe(0);
+  });
   it("keeps transferred binary states compact and decodes every native field", () => {
     const store = new PackedReplayStore();
     store.push(state(0));
