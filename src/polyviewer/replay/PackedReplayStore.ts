@@ -112,6 +112,22 @@ export class PackedReplayStore {
     return target;
   }
 
+  /** Visit each distinct retained state used by getFrame across this interval.
+   * Includes the predecessor at the first timestamp, matching floor sampling.
+   * Dense preview histories still visit every physics state, in order.
+   */
+  forEachFrameNumber(first: number, last: number, visit: (frame: number) => void): void {
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last) || first < 0 || last < first) {
+      throw new RangeError("Replay frame interval must be ordered non-negative integers.");
+    }
+    let index = Math.max(0, this.#findFrameAtOrBefore(first));
+    for (; index < this.#frameNumbers.length; index++) {
+      const frame = this.#frameNumbers[index]!;
+      if (frame > last) break;
+      visit(frame);
+    }
+  }
+
   #assertNextFrame(frame: number): void {
     if (frame !== this.#lastFrame + 1) {
       throw new Error(this.#lastFrame < 0

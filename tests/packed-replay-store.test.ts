@@ -27,6 +27,18 @@ describe("PackedReplayStore", () => {
     legacy.pushPacked(encode(state(1)));
     expect(legacy.packedBytes).toBe(0);
   });
+  it.each([null, new Set([0, 17, 33, 50])])("visits the same distinct states as millisecond lookups (%s)", samples => {
+    const store = new PackedReplayStore({ sampleFrames: samples ?? undefined });
+    for (let frame = 0; frame <= 50; frame++) store.push(state(frame));
+    for (const [first, last] of [[1, 17], [18, 33], [35, 49], [51, 70], [0, 0]]) {
+      const expected = new Set<number>();
+      for (let frame = first!; frame <= last!; frame++) expected.add(store.getFrame(frame)!.frames);
+      const visited: number[] = [];
+      store.forEachFrameNumber(first!, last!, frame => visited.push(frame));
+      expect(visited).toEqual([...expected]);
+    }
+  });
+
   it("keeps transferred binary states compact and decodes every native field", () => {
     const store = new PackedReplayStore();
     store.push(state(0));

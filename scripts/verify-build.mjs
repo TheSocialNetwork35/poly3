@@ -76,14 +76,18 @@ if (!bundle.includes("pvReplay.renderEndFrame=pvPlan.targetFrame")
 if (bundle.includes("pvReplay.setReplayOffset=") || bundle.includes("polyviewerOffsetFrames")) {
   throw new Error("Removed replay offset controls remain in the production runtime.");
 }
-if (!bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvApplyState(pvEntry,pvFrame)")
+if (!bundle.includes("d.polyviewerCaptureState||$.update(t)")
+  || !bundle.includes("pvEntry.replay.forEachFrameNumber(pvPrevious+1,pvTarget")
+  || !bundle.includes("pvReplay.evaluateFrame=") || !bundle.includes("pvApplyState(pvEntry,pvFrame)")
   || !bundle.includes("pvEntry.car.update(pvDelta)")) {
   throw new Error("The production bundle does not contain exact state evaluation with native frame-rate visual updates.");
 }
 if (bundle.split("pvEntry.car.update(pvDelta)").length - 1 !== 1) {
   throw new Error("The production bundle can perform more than one native visual update per replay per output frame.");
 }
-if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("pvReplay.setReplayNameTagVisible=")) {
+if (!bundle.includes("polyviewerRefreshNameTag()") || !bundle.includes("polyviewerSetNameTagEnabled(e)")
+  || !bundle.includes("pvReplay.setReplayNameTagVisible=")
+  || bundle.includes("this.polyviewerNameTagEnabled===!0&&(0,l.gn)(this,te,\"f\").hasStarted")) {
   throw new Error("The production bundle does not contain camera-facing replay name labels.");
 }
 if (!bundle.includes("this.polyviewerVisible!==!1") || !bundle.includes("for(const e of(0,l.gn)(this,Pe,\"f\"))e.clear()")) {

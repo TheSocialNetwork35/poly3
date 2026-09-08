@@ -109,6 +109,7 @@ declare global {
     push(state: object): void;
     pushPacked(bytes: Uint8Array): void;
     getFrame(frame: number): object | null;
+    forEachFrameNumber(first: number, last: number, visit: (frame: number) => void): void;
   }
 
   interface PolyTrackCameraPose {
