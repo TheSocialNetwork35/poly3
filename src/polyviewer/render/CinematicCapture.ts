@@ -1,146 +1,227 @@
-import { ACESFilmicToneMapping, PCFSoftShadowMap, Color, Vector2, type Scene, type PerspectiveCamera, type Mesh, type Material, type WebGLRenderer } from "three";
-import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
-import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import {
+  Color, HalfFloatType, NoToneMapping, PerspectiveCamera, Vector2,
+  type Material, type Mesh, type Scene, type WebGLRenderer,
+} from "three";
+import {
+  ASCIIEffect, BlendFunction, BloomEffect, BrightnessContrastEffect, ColorAverageEffect,
+  DepthOfFieldEffect, Effect, EffectComposer, EffectPass, FXAAEffect, HueSaturationEffect,
+  KernelSize, NormalPass, OutlineEffect, PredicationMode, RenderPass, SepiaEffect,
+  SMAAEffect, SMAAPreset, SSAOEffect, ToneMappingEffect, ToneMappingMode,
+} from "postprocessing";
+import { DEFAULT_SHADERS, normalizeShaderSettings, type ShaderSettings } from "../shaders/ShaderSettings";
 
-/** Imported and allocated only inside an explicit offline cinematic capture. */
+/** Lazily loaded PolyProcessing feature set. All passes use one frozen camera per frame. */
 export class CinematicCapture {
-  private composer: EffectComposer;
+  ready: Promise<void> = Promise.resolve();
+  private releaseReady?: () => void;
+  private composer!: EffectComposer;
+  private camera = new PerspectiveCamera();
+  private scene: Scene;
   private renderer: WebGLRenderer;
   private restore: () => void;
-  private projectedShadows: Mesh[] = [];
-  private shadowObjects: { mesh: Mesh; cast: boolean; receive: boolean }[] = [];
-  private materials: { mesh: Mesh; original: Material | Material[]; cinematic: Material }[] = [];
+  private disposed = false;
+  private rendering = false;
+  private outline?: OutlineEffect;
+  private wireframes = new Map<Material & { wireframe: boolean }, boolean>();
+  private settings: ShaderSettings;
+  private size = new Vector2();
+  private width = 0;
+  private height = 0;
 
-  constructor(bridge: PolyTrackRenderer, width: number, height: number) {
+
+  constructor(private bridge: PolyTrackRenderer, width: number, height: number, settings: ShaderSettings = DEFAULT_SHADERS, live = false, onError?: (error: unknown) => void) {
     const renderer = bridge.polyviewerWebGLRenderer;
-    if (!renderer) throw new Error("This runtime does not expose cinematic capture.");
+    if (!renderer) throw new Error("The runtime does not expose the shader renderer.");
     this.renderer = renderer;
+    this.scene = bridge.scene as unknown as Scene;
+    this.settings = normalizeShaderSettings(settings);
+    const s = this.settings;
+    const originalRender = renderer.render;
+    const originalUpdate = bridge.update;
     const toneMapping = renderer.toneMapping;
     const exposure = renderer.toneMappingExposure;
     const target = renderer.getRenderTarget();
-    const shadowType = renderer.shadowMap.type;
     const clearColor = renderer.getClearColor(new Color());
     const clearAlpha = renderer.getClearAlpha();
     const autoClear = renderer.autoClear;
-    const scene = bridge.scene as unknown as Scene;
-    const override = scene.overrideMaterial;
     this.restore = () => {
+      renderer.render = originalRender;
+      if (originalUpdate) bridge.update = originalUpdate;
       renderer.toneMapping = toneMapping;
       renderer.toneMappingExposure = exposure;
       renderer.setRenderTarget(target);
-      renderer.shadowMap.type = shadowType;
-      renderer.shadowMap.needsUpdate = true;
       renderer.autoClear = autoClear;
       renderer.setClearColor(clearColor, clearAlpha);
-      scene.overrideMaterial = override;
     };
-    this.composer = new EffectComposer(renderer);
     try {
-      renderer.toneMapping = ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
-      renderer.shadowMap.type = PCFSoftShadowMap;
-      renderer.shadowMap.needsUpdate = true;
-      this.composer.renderTarget1.samples = Math.min(4, renderer.capabilities.maxSamples);
-      this.composer.renderTarget2.samples = Math.min(4, renderer.capabilities.maxSamples);
-      this.composer.setSize(width, height);
-      (bridge.scene as unknown as Scene).traverse(object => {
-        const mesh = object as Mesh;
-        if (!mesh.isMesh) return;
-        if ("meshMatrix" in mesh && mesh.visible) {
-          this.projectedShadows.push(mesh); mesh.visible = false;
-        }
-        const opaque = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).every(m => !m.transparent && m.type !== "ShaderMaterial");
-        if (opaque) {
-          this.shadowObjects.push({ mesh, cast: mesh.castShadow, receive: mesh.receiveShadow });
-          mesh.castShadow = true; mesh.receiveShadow = true;
-        }
-        if (Array.isArray(mesh.material)) return;
-        const original = mesh.material as Material & { map?: { image?: { src?: string } } };
-        if (!original.map?.image?.src?.includes("smoke")) return;
-        const material = original.clone();
-        // Give the native animated smoke billboards a rounded light response.
-        // Keep their texture, instancing, lifetime and world movement intact.
-        material.onBeforeCompile = shader => {
-          shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", `
-            #include <map_fragment>
-            #ifdef USE_MAP
-              vec2 smokeXY = vMapUv * 2.0 - 1.0;
-              float smokeZ = sqrt(max(0.0, 1.0 - dot(smokeXY, smokeXY)));
-              float smokeLight = 0.68 + 0.42 * max(0.0, dot(normalize(vec3(smokeXY, smokeZ)), normalize(vec3(-0.4, 0.8, 0.6))));
-              diffuseColor.rgb *= smokeLight;
-              diffuseColor.a = pow(diffuseColor.a, 1.12);
-            #endif
-          `);
+      renderer.toneMapping = NoToneMapping;
+      renderer.toneMappingExposure = s.toneMappingExposure;
+      this.camera.copy(bridge.camera as unknown as PerspectiveCamera, false);
+      this.composer = new EffectComposer(renderer, { frameBufferType: HalfFloatType,
+        multisampling: Math.min(s.msaaSamples, renderer.capabilities.maxSamples) });
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      // Native custom materials may produce invalid HDR pixels. Bound these
+      // before bloom/adaptation so one pixel cannot poison an entire frame.
+      this.add(new Effect("FiniteHDR", `void mainImage(const in vec4 c, const in vec2 uv, out vec4 o) {
+        o = vec4(c.r >= 0.0 ? min(c.r, 64.0) : 0.0,
+                 c.g >= 0.0 ? min(c.g, 64.0) : 0.0,
+                 c.b >= 0.0 ? min(c.b, 64.0) : 0.0, c.a);
+      }`, { blendFunction: BlendFunction.SRC }));
+      if (s.aoEnabled) {
+        const normals = new NormalPass(this.scene, this.camera);
+        const renderNormals = normals.render.bind(normals);
+        normals.render = (...args) => {
+          const hidden: Mesh[] = [];
+          this.scene.traverseVisible(object => {
+            const mesh = object as Mesh;
+            if (mesh.isMesh && ("meshMatrix" in mesh || (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).every(m => m.transparent))) {
+              hidden.push(mesh); mesh.visible = false;
+            }
+          });
+          try { renderNormals(...args); } finally { for (const mesh of hidden) mesh.visible = true; }
         };
-        material.customProgramCacheKey = () => "polyviewer-cinematic-smoke-v1";
-        this.materials.push({ mesh, original, cinematic: material });
-        mesh.material = material;
-      });
-      // Native lighting, material shaders, particles and skidmarks are rendered
-      // unchanged; the normal/depth pass adds contact occlusion to real geometry.
-      this.composer.addPass(new RenderPass(bridge.scene as unknown as Scene, bridge.camera as unknown as PerspectiveCamera));
-      const ao = new SSAOPass(bridge.scene as unknown as Scene, bridge.camera as unknown as PerspectiveCamera, width, height, 32);
-      this.composer.addPass(ao);
-      const renderAO = ao.render.bind(ao);
-      ao.render = (...args) => {
-        const hidden: Mesh[] = [];
-        scene.traverseVisible(object => {
-          const mesh = object as Mesh;
-          if (mesh.isMesh && (Array.isArray(mesh.material) ? mesh.material.every(m => m.transparent) : mesh.material.transparent)) {
-            hidden.push(mesh); mesh.visible = false;
-          }
+        this.composer.addPass(normals);
+        this.add(new SSAOEffect(this.camera, normals.texture, { samples: 24, rings: 7,
+          intensity: s.aoIntensity, radius: s.aoRadius, worldDistanceThreshold: 250,
+          worldDistanceFalloff: 100, worldProximityThreshold: 0.5, worldProximityFalloff: 1 }));
+      }
+      if (s.outlineEnabled) {
+        this.outline = new OutlineEffect(this.scene, this.camera, { edgeStrength: s.outlineStrength });
+        this.add(this.outline);
+      }
+      if (s.dofEnabled) {
+        const dof = new DepthOfFieldEffect(this.camera, { focusDistance: s.dofFocusDistance,
+          focusRange: s.dofFocusRange, bokehScale: s.dofBokehScale, resolutionScale: Number(s.dofResolutionScale) });
+        dof.blurPass.kernelSize = KernelSize[s.dofKernelSize as keyof typeof KernelSize];
+        dof.blendMode.opacity.value = s.dofOpacity;
+        // PolyTrack's sky can write depth zero. Keep it outside the focus plane.
+        const coc = dof.circleOfConfusionMaterial;
+        coc.fragmentShader = coc.fragmentShader.replace("float depth=readDepth(vUv);", "float depth=readDepth(vUv);if(depth<=0.0){gl_FragColor=vec4(0.0,1.0,0.0,1.0);return;}");
+        this.add(dof);
+      }
+      if (s.bloomEnabled) this.add(new BloomEffect({ intensity: s.bloomIntensity,
+        luminanceThreshold: s.bloomThreshold, luminanceSmoothing: 0.15, mipmapBlur: true, radius: s.bloomRadius }));
+      const tone = new ToneMappingEffect({ mode: ToneMappingMode[s.toneMappingMode as keyof typeof ToneMappingMode],
+        blendFunction: BlendFunction[s.toneMappingBlendMode as keyof typeof BlendFunction],
+        whitePoint: s.toneMappingWhitePoint, middleGrey: s.toneMappingMiddleGrey,
+        minLuminance: s.toneMappingMinLuminance, averageLuminance: s.toneMappingAverageLuminance,
+        adaptationRate: s.toneMappingAdaptationRate });
+      tone.blendMode.opacity.value = s.toneMappingOpacity;
+      this.add(tone);
+      const grey = new ColorAverageEffect(); grey.blendMode.opacity.value = s.greyscale;
+      const sepia = new SepiaEffect(); sepia.blendMode.opacity.value = s.sepia;
+      this.add(new HueSaturationEffect({ hue: s.hue * Math.PI / 180, saturation: s.saturation }), sepia, grey,
+        new BrightnessContrastEffect({ brightness: s.brightness, contrast: s.contrast }));
+      if (s.invertEnabled) this.add(new Effect("Invert", "void mainImage(const in vec4 c, const in vec2 uv, out vec4 o) { o = vec4(1.0-c.rgb,c.a); }", { blendFunction: BlendFunction.SRC }));
+      if (s.smaaEnabled) {
+        const smaa = new SMAAEffect({ preset: SMAAPreset[s.smaaPreset as keyof typeof SMAAPreset], predicationMode: PredicationMode.DEPTH });
+        // The package emits "load" but its declaration only lists "change".
+        const events = smaa as unknown as {
+          addEventListener(type: "load", listener: () => void): void;
+          removeEventListener(type: "load", listener: () => void): void;
+        };
+        this.ready = new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("SMAA lookup textures did not load.")), 10_000);
+          this.releaseReady = () => { clearTimeout(timeout); resolve(); };
+          const loaded = () => {
+            events.removeEventListener("load", loaded);
+            // A rapid preset change can dispose the effect before its images load.
+            if (this.disposed) smaa.dispose();
+            this.releaseReady?.();
+          };
+          events.addEventListener("load", loaded);
         });
-        try { renderAO(...args); } finally { for (const mesh of hidden) mesh.visible = true; }
+        this.add(smaa);
+      }
+      if (s.fxaaEnabled) { const fxaa = new FXAAEffect(); fxaa.samples = s.fxaaSamples; this.add(fxaa); }
+      if (s.asciiEnabled) this.add(new ASCIIEffect());
+      this.resize(width, height);
+      // Install hooks only while shaders are enabled. Prepare the actual native
+      // camera BEFORE CSM fits its light frusta, not in scene.onBeforeRender.
+      if (originalUpdate) bridge.update = (...args) => {
+        bridge.polyviewerPrepareCamera?.();
+        return originalUpdate.apply(bridge, args);
       };
-      ao.kernelRadius = 1.4;
-      ao.minDistance = 0.001;
-      ao.maxDistance = 0.08;
-      const bloom = new UnrealBloomPass(new Vector2(width, height), 0.18, 0.45, 1.1);
-      this.composer.addPass(bloom);
-      this.composer.addPass(new OutputPass());
-    } catch (error) {
-      this.dispose();
-      throw error;
-    }
+      let lastFrame = performance.now();
+      renderer.render = (scene, camera) => {
+        if (this.rendering || scene !== this.scene || camera !== bridge.camera as unknown || renderer.getRenderTarget() !== null) {
+          originalRender.call(renderer, scene, camera); return;
+        }
+        // Offline capture updates native CSM here, then renders the composer
+        // exactly once from render(). No duplicate beauty pass is needed.
+        if (!live) return;
+        const now = performance.now();
+        try { this.render(true, Math.min(0.1, Math.max(0, (now - lastFrame) / 1000))); }
+        catch (error) {
+          this.dispose();
+          onError?.(error);
+          originalRender.call(renderer, scene, camera);
+        } finally { lastFrame = now; }
+      };
+    } catch (error) { this.dispose(); throw error; }
   }
 
-  render(shadows = true): void {
-    for (const pass of this.composer.passes) {
-      if (pass instanceof SSAOPass) {
-        const u = pass.ssaoMaterial.uniforms;
-        u.cameraNear!.value = (pass.camera as PerspectiveCamera).near;
-        u.cameraFar!.value = (pass.camera as PerspectiveCamera).far;
-        u.cameraProjectionMatrix!.value.copy(pass.camera.projectionMatrix);
-        u.cameraInverseProjectionMatrix!.value.copy(pass.camera.projectionMatrixInverse);
+  private add(...effects: Effect[]): void { this.composer.addPass(new EffectPass(this.camera, ...effects)); }
+  private resize(width: number, height: number): void {
+    if (width === this.width && height === this.height) return;
+    this.width = width; this.height = height;
+    const ratio = this.renderer.getPixelRatio();
+    this.composer.setSize(width / ratio, height / ratio, false);
+  }
+
+  render(shadows = true, delta = 1 / 60): void {
+    if (this.disposed) return;
+    this.bridge.polyviewerPrepareCamera?.();
+    this.camera.copy(this.bridge.camera as unknown as PerspectiveCamera, false);
+    // Canonical Three camera avoids cross-bundle instanceof failures in effects.
+    this.composer.setMainCamera(this.camera);
+    this.renderer.getDrawingBufferSize(this.size);
+    this.resize(this.size.x, this.size.y);
+    if (this.outline || this.settings.wireframeEnabled) {
+      this.outline?.selection.clear();
+      for (const group of this.scene.children) {
+        if (group.type !== "Group") continue;
+        group.traverse(object => {
+          const mesh = object as Mesh;
+          if (!mesh.isMesh) return;
+          this.outline?.selection.add(mesh);
+          if (this.settings.wireframeEnabled) for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+            if (!("wireframe" in material)) continue;
+            const wire = material as Material & { wireframe: boolean };
+            if (!this.wireframes.has(wire)) this.wireframes.set(wire, wire.wireframe);
+            wire.wireframe = true;
+          }
+        });
       }
     }
     const enabled = this.renderer.shadowMap.enabled;
+    const before = this.scene.onBeforeRender;
+    const override = this.scene.overrideMaterial;
+    const target = this.renderer.getRenderTarget();
+    // Depth, normals, colour and bokeh must see exactly the same camera. Native
+    // hooks run before the snapshot; never mutate it between individual passes.
+    this.scene.onBeforeRender = () => {};
     if (!shadows) this.renderer.shadowMap.enabled = false;
-    try { this.composer.render(0); } finally { this.renderer.shadowMap.enabled = enabled; }
+    this.rendering = true;
+    try { this.composer.render(delta); }
+    finally {
+      this.rendering = false;
+      this.scene.onBeforeRender = before;
+      this.scene.overrideMaterial = override;
+      this.renderer.shadowMap.enabled = enabled;
+      this.renderer.setRenderTarget(target);
+    }
   }
 
   dispose(): void {
-    try {
-      for (const pass of this.composer.passes) {
-        pass.dispose();
-        // r181 SSAOPass.dispose omits these two owned resources.
-        if (pass instanceof SSAOPass) { pass.ssaoMaterial.dispose(); pass.noiseTexture.dispose(); }
-      }
-      this.composer.dispose();
-      for (const { mesh, original, cinematic } of this.materials) {
-        mesh.material = original;
-        cinematic.dispose();
-      }
-      this.materials.length = 0;
-      for (const { mesh, cast, receive } of this.shadowObjects) {
-        mesh.castShadow = cast; mesh.receiveShadow = receive;
-      }
-      this.shadowObjects.length = 0;
-      for (const mesh of this.projectedShadows) mesh.visible = true;
-      this.projectedShadows.length = 0;
-    } finally { this.restore(); }
+    if (this.disposed) return;
+    this.disposed = true;
+    this.releaseReady?.();
+    try { this.composer?.dispose(); }
+    finally {
+      for (const [material, original] of this.wireframes) material.wireframe = original;
+      this.wireframes.clear();
+      this.restore();
+    }
   }
 }

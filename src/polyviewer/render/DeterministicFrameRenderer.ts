@@ -1,9 +1,11 @@
+import type { ShaderSettings } from "../shaders/ShaderSettings";
 import { CaptureGuard } from "./CaptureGuard";
 import type { SceneEvaluator } from "../scene/SceneEvaluator";
 import { frameCountForRange, frameTimeMicroseconds } from "./FrameSchedule";
 
 export interface FrameRenderSettings {
   cinematic?: boolean;
+  shaderSettings?: ShaderSettings;
   width: number;
   height: number;
   fps: number;
@@ -38,7 +40,7 @@ export class DeterministicFrameRenderer {
   #renderer: PolyTrackRenderer;
   #sceneEvaluator: SceneEvaluator;
 
-  constructor(renderer: PolyTrackRenderer, sceneEvaluator: SceneEvaluator) {
+  constructor(renderer: PolyTrackRenderer, sceneEvaluator: SceneEvaluator, private preview?: { suspend(): void; resume(): void }) {
     this.#renderer = renderer;
     this.#sceneEvaluator = sceneEvaluator;
   }
@@ -52,9 +54,10 @@ export class DeterministicFrameRenderer {
     );
     const editorState = this.#sceneEvaluator.captureEditorState();
     const guard = new CaptureGuard(this.#renderer.canvas, options.signal);
-    let cinematic: { render(shadows?: boolean): void; dispose(): void } | undefined;
+    let cinematic: { ready?: Promise<void>; render(shadows?: boolean, delta?: number): void; dispose(): void } | undefined;
     try {
       guard.check();
+      this.preview?.suspend();
       this.#renderer.polyviewerBeginCapture(settings.width, settings.height, {
         particles: settings.particles !== false,
         skidmarks: settings.skidmarks !== false,
@@ -63,12 +66,20 @@ export class DeterministicFrameRenderer {
       if (settings.cinematic) {
         const { CinematicCapture } = await guard.wait(import("./CinematicCapture"));
         guard.check();
-        cinematic = new CinematicCapture(this.#renderer, settings.width, settings.height);
+        cinematic = new CinematicCapture(this.#renderer, settings.width, settings.height, settings.shaderSettings);
+        await guard.wait(cinematic.ready ?? Promise.resolve());
       }
       let lastYield = performance.now();
       if (options.signal?.aborted) throw new DOMException("Rendering cancelled.", "AbortError");
       this.#sceneEvaluator.evaluateRenderFrame(0, false);
+      const adaptExposure = settings.cinematic && settings.shaderSettings?.toneMappingMode === "REINHARD2_ADAPTIVE";
+      const warmExposure = () => {
+        if (!adaptExposure) return;
+        this.#renderer.polyviewerRenderFrame(settings.carShadows !== false);
+        cinematic?.render(settings.carShadows !== false, 1 / settings.fps);
+      };
       if (settings.startMicroseconds > 0) {
+        warmExposure();
         // Rebuild stateful visuals at the selected output cadence. Each call
         // still visits every exact worker state internally, while the expensive
         // native Car.update runs once per would-be video frame just like normal
@@ -79,6 +90,7 @@ export class DeterministicFrameRenderer {
           const preRollTimestamp = frameTimeMicroseconds(preRollIndex, 0, settings.fps);
           if (preRollTimestamp >= settings.startMicroseconds) break;
           this.#sceneEvaluator.evaluateRenderFrame(preRollTimestamp, true);
+          warmExposure();
           if (performance.now() - lastYield > 50) {
             await guard.wait(new Promise<void>(resolve => setTimeout(resolve, 0)));
             lastYield = performance.now();
@@ -93,7 +105,7 @@ export class DeterministicFrameRenderer {
         if (index > 0) this.#sceneEvaluator.evaluateRenderFrame(timestamp, true);
         guard.check();
         this.#renderer.polyviewerRenderFrame(settings.carShadows !== false);
-        cinematic?.render(settings.carShadows !== false);
+        cinematic?.render(settings.carShadows !== false, 1 / settings.fps);
         guard.check();
         const image = options.captureImage === false
           ? undefined
@@ -113,7 +125,8 @@ export class DeterministicFrameRenderer {
       try {
         try { cinematic?.dispose(); } finally { this.#renderer.polyviewerEndCapture(); }
       } finally {
-        this.#sceneEvaluator.restoreEditorState(editorState);
+        try { this.#sceneEvaluator.restoreEditorState(editorState); }
+        finally { this.preview?.resume(); }
       }
     }
   }

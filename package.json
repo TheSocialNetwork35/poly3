@@ -24,6 +24,7 @@
   "dependencies": {
     "fflate": "^0.8.2",
     "mediabunny": "^1.53.0",
+    "postprocessing": "6.39.5",
     "three": "^0.181.0"
   }
 }

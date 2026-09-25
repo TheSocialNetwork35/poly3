@@ -828,3 +828,54 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
   .polyviewer-load-status { display: none; }
   .polyviewer-time { justify-self: end; }
 }
+
+.polyviewer-shaders-button { background: linear-gradient(110deg, #35578f, #635492) !important; }
+.polyviewer-shader-panel {
+  position: fixed; inset: 16px 16px auto auto; margin: 0; width: min(370px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px); overflow: auto; box-sizing: border-box;
+  padding: 20px; border: 1px solid #586581; border-radius: 14px;
+  color: #edf1f9; background: #141c2bf5; box-shadow: 0 18px 70px #0009;
+  font: 13px/1.45 system-ui, sans-serif; z-index: 10000; color-scheme: dark;
+}
+.polyviewer-shader-panel header { display: flex; justify-content: space-between; align-items: center; }
+.polyviewer-shader-panel header small { color: #a5b5d7; font-size: 10px; letter-spacing: .13em; }
+.polyviewer-shader-panel h2 { margin: 3px 0 0; font-size: 25px; letter-spacing: -.04em; }
+.polyviewer-shader-panel button { border: 1px solid #45536c; border-radius: 7px; background: #243047; color: #edf1f9; padding: 8px 11px; cursor: pointer; }
+.polyviewer-shader-panel button:active { transform: scale(.97); }
+.polyviewer-shader-panel :focus-visible { outline: 2px solid #a9c5ff; outline-offset: 3px; }
+.polyviewer-shader-panel .shader-intro { color: #a5b5cf; margin: 8px 0 20px; }
+.polyviewer-shader-panel label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.polyviewer-shader-panel .shader-preview { padding: 12px; border: 1px solid #405273; border-radius: 9px; background: #223149; }
+.polyviewer-shader-panel small { display: block; font-size: 11px; color: #a5b5cf; }
+.polyviewer-shader-panel input { accent-color: #93b7ff; }
+.polyviewer-shader-panel input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; }
+.polyviewer-shader-panel .shader-status { min-height: 18px; font-size: 11px; color: #a5b5cf; }
+.polyviewer-shader-panel[data-active="true"] .shader-status { color: #a3e0bb; }
+.polyviewer-shader-panel select { max-width: 190px; padding: 7px; border: 1px solid #45536c; border-radius: 6px; background: #202b40; color: #edf1f9; font: inherit; }
+.polyviewer-shader-panel .shader-preset { padding: 8px 0 16px; }
+.polyviewer-shader-panel details { border-top: 1px solid #344056; }
+.polyviewer-shader-panel summary { padding: 13px 0; cursor: pointer; font-weight: 600; }
+.polyviewer-shader-panel details > div { display: grid; gap: 14px; padding: 0 0 20px; }
+.polyviewer-shader-panel details label { font-size: 11px; }
+.polyviewer-shader-panel .shader-range { display: flex; flex: 0 0 170px; align-items: center; gap: 7px; }
+.polyviewer-shader-panel input[type="range"] { width: 125px; min-width: 0; margin: 0; }
+.polyviewer-shader-panel output { width: 38px; text-align: right; font-variant-numeric: tabular-nums; color: #bccdee; }
+.polyviewer-shader-panel footer { display: flex; gap: 10px; align-items: center; justify-content: space-between; border-top: 1px solid #344056; padding: 16px 0; font-size: 10px; color: #a5b5cf; }
+.polyviewer-shader-panel footer button { white-space: nowrap; font-size: 11px; }
+.polyviewer-shader-panel a { font-size: 10px; color: #9bb7eb; text-underline-offset: 3px; }
+@media (hover: hover) { .polyviewer-shader-panel button:hover { background: #344560; } }
+@media (max-width: 420px) { .polyviewer-shader-panel { padding: 15px; } .polyviewer-shader-panel .shader-range { flex-basis: 145px; } .polyviewer-shader-panel input[type="range"] { width: 100px; } }
+/* Isolate editor controls from PolyTrack's global font and oversized sliders. */
+.polyviewer-shaders-button {
+  display: block; width: 100%; margin-top: 7px; padding: 10px;
+  border: 1px solid #849bce; border-radius: 5px; color: white;
+  font: 12px/1.2 system-ui, sans-serif; cursor: pointer;
+}
+.polyviewer-shader-panel { z-index: 100005; background: #141c2b; }
+.polyviewer-shader-panel * { font-family: system-ui, sans-serif; box-sizing: border-box; }
+.polyviewer-shader-panel input[type="range"] { appearance: none; height: 22px; background: transparent; border: 0; padding: 0; }
+.polyviewer-shader-panel input[type="range"]::-webkit-slider-runnable-track { height: 4px; border: 0; border-radius: 5px; background: #455a7d; }
+.polyviewer-shader-panel input[type="range"]::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; margin-top: -5px; border: 0; border-radius: 50%; background: #afcaff; box-shadow: 0 1px 4px #0008; }
+.polyviewer-shader-panel input[type="range"]::-moz-range-track { height: 4px; border: 0; border-radius: 5px; background: #455a7d; }
+.polyviewer-shader-panel input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #afcaff; }
+.polyviewer-shader-panel, .polyviewer-shader-panel * { font-style: normal; }

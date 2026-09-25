@@ -25,6 +25,7 @@ interface EditorShellOptions {
   onRemoveReplay?: (id: string) => void;
   onToggleCleanPreview?: () => void;
   onOpenRender?: () => void;
+  onOpenShaders?: () => void;
   onResetCamera?: () => void;
   onOpenCameraMoves?: () => void;
 }
@@ -66,6 +67,7 @@ export class EditorShell {
       <div class="polyviewer-title"><span>POLY</span>VIEWER <small>0.6.2</small></div>
       <button class="polyviewer-toggle" type="button">Enter PolyViewer <kbd>F1</kbd></button>
       <button class="polyviewer-clean-preview-button" type="button">Clean Preview <kbd>F8</kbd></button>
+      <button class="polyviewer-shaders-button" type="button">✦ Shaders</button>
       <button class="polyviewer-render-button" type="button">Render</button>
       <div class="polyviewer-status" aria-live="polite">Connecting to PolyTrack…</div>
       <div class="polyviewer-camera-modes" aria-label="Camera mode">
@@ -177,6 +179,7 @@ export class EditorShell {
     this.#rightStack.append(cameraMoveButton, this.#replayPanel, this.#shortcutSheet);
     cameraMoveButton.addEventListener("click", () => options.onOpenCameraMoves?.());
     cleanPreviewButton.addEventListener("click", () => options.onToggleCleanPreview?.());
+    this.element.querySelector(".polyviewer-shaders-button")?.addEventListener("click", () => options.onOpenShaders?.());
     renderButton.addEventListener("click", () => options.onOpenRender?.());
     this.element.querySelector(".polyviewer-reset-camera")?.addEventListener(
       "click",

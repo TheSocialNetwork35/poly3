@@ -1,5 +1,7 @@
 # Cinematic capture / Blender validation
 
+This records the initial capture/export implementation. The later shader rebuild and its validation are described in [shaders.md](shaders.md).
+
 Validated on 2026-09-25 with the real PolyTrack 0.6.2 runtime, Brave/Chromium and Blender 5.2.1.
 
 - 131 tests passed, including ordinary-capture isolation, failure cleanup, instancing, changing geometry, suspension morphs and projective shadow matrices.

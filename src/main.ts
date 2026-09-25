@@ -1,4 +1,6 @@
 import "./styles.css";
+import { ShaderPanel } from "./polyviewer/ui/ShaderPanel";
+import { ShaderSession } from "./polyviewer/shaders/ShaderSession";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
 import { CameraEditAuthority } from "./polyviewer/camera/CameraEditAuthority";
 import { FreeCameraController } from "./polyviewer/camera/FreeCameraController";
@@ -16,6 +18,12 @@ import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
 import { RenderPanel, type RenderPanelOptions } from "./polyviewer/ui/RenderPanel";
 
 installPackedReplayStoreFactory();
+
+let shaderSession: ShaderSession | undefined;
+const shaderPanel = new ShaderPanel((settings, enabled) => {
+  if (shaderSession) void shaderSession.configure(settings, enabled);
+  else shaderPanel.setStatus("Shaders unavailable: wait for the game to load.", false);
+});
 
 const masterTimeline = new MasterTimeline();
 const cameraPoints = new CameraKeyframeStore();
@@ -40,7 +48,7 @@ let exportBlenderScene: RenderPanelOptions["onBlender"];
 const renderPanel = new RenderPanel({
   onStill: (...args) => {
     if (!captureStill) throw new Error("Open a replay first.");
-    return captureStill(...args);
+    return captureStill({ ...args[0], shaderSettings: { ...shaderPanel.settings } }, args[1], args[2]);
   },
   onBlender: (...args) => {
     if (!exportBlenderScene) throw new Error("Open a replay first.");
@@ -48,7 +56,7 @@ const renderPanel = new RenderPanel({
   },
   onRender: (settings, signal, includeAudio, onProgress, onPreparationProgress, onAudioProgress, onAudioWarning) => {
     if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
-    return videoExporter.export(settings, {
+    return videoExporter.export({ ...settings, shaderSettings: { ...shaderPanel.settings } }, {
       signal,
       includeAudio,
       onProgress,
@@ -90,6 +98,7 @@ shell = new EditorShell({
   onReplayNameTagVisibilityChange: (id, visible) => replayBridge?.setReplayNameTagVisible(id, visible),
   onRemoveReplay: (id) => replayBridge?.removeReplay(id),
   onToggleCleanPreview: () => cleanPreview.toggle(),
+  onOpenShaders: () => shaderPanel.open(),
   onOpenRender: () => renderPanel.open(masterTimeline.durationMicroseconds),
   onResetCamera: () => {
     cameraEditAuthority.beginManualEdit();
@@ -210,12 +219,15 @@ void waitForPolyTrackBridge()
         cameraEditAuthority.beginManualEdit();
       },
     });
+    bridge.renderer.polyviewerPrepareCamera = () => cameraController?.prepareRenderCamera();
+    shaderSession = new ShaderSession(bridge.renderer, (message, active) => shaderPanel.setStatus(message, active));
+    shaderSession.settings = { ...shaderPanel.settings };
     sceneEvaluator = new SceneEvaluator(
       () => cameraPoints.points,
       replayBridge,
       cameraController,
     );
-    const frameRenderer = new DeterministicFrameRenderer(bridge.renderer, sceneEvaluator);
+    const frameRenderer = new DeterministicFrameRenderer(bridge.renderer, sceneEvaluator, shaderSession);
     videoExporter = new VideoExporter(frameRenderer, bridge.canvas, bridge.audio, replayBridge);
     captureStill = async (settings, signal, onProgress) => {
       const range = { ...settings, endMicroseconds: Math.min(settings.endMicroseconds,
@@ -234,6 +246,8 @@ void waitForPolyTrackBridge()
     };
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
+      shaderSession?.dispose();
+      delete bridge.renderer.polyviewerPrepareCamera;
       cameraController?.dispose();
       replayBridge?.dispose();
       shortcuts.dispose();

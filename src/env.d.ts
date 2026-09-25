@@ -124,6 +124,8 @@ declare global {
   }
 
   interface PolyTrackRenderer {
+    update?: (...args: unknown[]) => void;
+    polyviewerPrepareCamera?: () => void;
     readonly polyviewerWebGLRenderer?: import("three").WebGLRenderer;
     readonly scene: PolyTrackScene;
     readonly camera: PolyTrackCamera;

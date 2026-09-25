@@ -214,6 +214,10 @@ export class FreeCameraController {
     };
   }
 
+  prepareRenderCamera(): void {
+    if (this.#enabled) this.#applyToCamera(this.#bridge.camera);
+  }
+
   applyState(state: CinematicCameraState): void {
     this.#mode = normalizeCameraMode(state.mode);
     this.#targetReplayId = state.targetReplayId || "main";

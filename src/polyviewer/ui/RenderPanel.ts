@@ -56,8 +56,8 @@ export class RenderPanel {
           </select>
         </label>
         <p id="polyviewer-workers-help" class="polyviewer-render-help">More workers can prepare cars faster, but use more memory. ${this.#availableWorkers} logical CPU cores reported by your browser.</p>
-        <label class="polyviewer-render-option"><input name="cinematic" type="checkbox"> Cinematic shader · contact shadows, bloom, filmic light</label>
-        <p class="polyviewer-render-help" data-output-help>Cinematic lighting applies only to exported PNGs and videos. Normal navigation stays unchanged.</p>
+        <label class="polyviewer-render-option"><input name="cinematic" type="checkbox"> Use shader settings · configured in Shaders</label>
+        <p class="polyviewer-render-help" data-output-help>Open Shaders to choose a look. This checkbox applies it to PNG and video exports, independently of live preview.</p>
         <label class="polyviewer-render-option"><input name="shadows" type="checkbox" checked> Scene and car shadows</label>
         <label class="polyviewer-render-option"><input name="particles" type="checkbox" checked> Particles (dust and smoke)</label>
         <label class="polyviewer-render-option"><input name="skidmarks" type="checkbox" checked> Tire marks</label>
@@ -214,8 +214,8 @@ export class RenderPanel {
     const help = this.element.querySelector<HTMLElement>('[data-output-help]');
     if (help) help.textContent = output === "blender"
       ? "Exports the scene and sampled animation. Extract the ZIP, then run import_scene.py in Blender. Materials, lighting and sky may look different. Smoke remains animated cards."
-      : output === "still" ? "Captures the selected Start time as a PNG. Cinematic lighting applies only to the shot; normal navigation stays unchanged."
-      : "Cinematic lighting applies only to the exported video. Normal navigation stays unchanged.";
+      : output === "still" ? "Captures the selected Start time as a PNG. Enable Use shader settings to apply the look configured in Shaders."
+      : "Enable Use shader settings to apply the look configured in Shaders. Live preview is independent of this export option.";
     const end = this.element.querySelector<HTMLElement>('[data-render-end]');
     if (end) end.style.display = output === "still" ? "none" : "";
     const endInput = end?.querySelector<HTMLInputElement>("input");
