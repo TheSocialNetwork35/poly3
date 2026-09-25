@@ -124,13 +124,14 @@ declare global {
   }
 
   interface PolyTrackRenderer {
+    readonly polyviewerWebGLRenderer?: import("three").WebGLRenderer;
     readonly scene: PolyTrackScene;
     readonly camera: PolyTrackCamera;
     readonly canvas: HTMLCanvasElement;
     polyviewerBeginCapture(
       width: number,
       height: number,
-      effects?: { particles?: boolean; skidmarks?: boolean },
+      effects?: { particles?: boolean; skidmarks?: boolean; cinematic?: boolean },
     ): void;
     polyviewerRenderFrame(carShadows?: boolean): void;
     polyviewerEndCapture(): void;

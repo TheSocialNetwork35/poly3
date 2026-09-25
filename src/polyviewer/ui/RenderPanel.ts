@@ -1,7 +1,9 @@
 import type { FrameRenderSettings } from "../render/DeterministicFrameRenderer";
 import type { VideoExportResult } from "../render/VideoExporter";
 
-interface RenderPanelOptions {
+export interface RenderPanelOptions {
+  onStill?: (settings: FrameRenderSettings, signal: AbortSignal, onProgress: (completed: number, total: number) => void) => Promise<Blob>;
+  onBlender?: (settings: FrameRenderSettings, signal: AbortSignal, onProgress: (completed: number, total: number) => void, onPreparationProgress: (completed: number, total: number) => void) => Promise<Blob>;
   onRender: (
     settings: FrameRenderSettings,
     signal: AbortSignal,
@@ -33,7 +35,8 @@ export class RenderPanel {
     this.element.className = "polyviewer-render-dialog";
     this.element.innerHTML = `
       <form method="dialog">
-        <strong>Render Video</strong>
+        <strong>Capture & Export</strong>
+        <label>Output<select name="output"><option value="video">Video (MP4)</option><option value="still">Still image (PNG)</option><option value="blender">Blender scene (ZIP + importer)</option></select></label>
         <label>Resolution
           <select name="resolution">
             <option value="1080p">1080p</option>
@@ -45,7 +48,7 @@ export class RenderPanel {
           <select name="fps"><option>30</option><option selected>60</option></select>
         </label>
         <label>Start time (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
-        <label>End time (seconds)<input name="end" type="number" min="0" step="0.001" required></label>
+        <label data-render-end>End time (seconds)<input name="end" type="number" min="0" step="0.001" required></label>
         <label class="polyviewer-render-workers">CPU workers for preparation
           <select name="workers" aria-describedby="polyviewer-workers-help">
             <option value="0">Automatic (${Math.max(1, Math.min(4, this.#availableWorkers - 1))} workers)</option>
@@ -53,7 +56,9 @@ export class RenderPanel {
           </select>
         </label>
         <p id="polyviewer-workers-help" class="polyviewer-render-help">More workers can prepare cars faster, but use more memory. ${this.#availableWorkers} logical CPU cores reported by your browser.</p>
-        <label class="polyviewer-render-option"><input name="shadows" type="checkbox" checked> Car shadows</label>
+        <label class="polyviewer-render-option"><input name="cinematic" type="checkbox"> Cinematic shader · contact shadows, bloom, filmic light</label>
+        <p class="polyviewer-render-help" data-output-help>Cinematic lighting applies only to exported PNGs and videos. Normal navigation stays unchanged.</p>
+        <label class="polyviewer-render-option"><input name="shadows" type="checkbox" checked> Scene and car shadows</label>
         <label class="polyviewer-render-option"><input name="particles" type="checkbox" checked> Particles (dust and smoke)</label>
         <label class="polyviewer-render-option"><input name="skidmarks" type="checkbox" checked> Tire marks</label>
         <label class="polyviewer-render-option"><input name="audio" type="checkbox" checked> Include real PolyTrack sound (adds a 1.0× audio pass)</label>
@@ -61,7 +66,7 @@ export class RenderPanel {
         <progress max="1" value="0"></progress>
         <div>
           <button type="button" data-render-cancel>Cancel</button>
-          <button type="submit" data-render-submit>Render Video</button>
+          <button type="submit" data-render-submit>Capture / Export</button>
         </div>
       </form>
     `;
@@ -88,6 +93,8 @@ export class RenderPanel {
       event.preventDefault();
       void this.#start(options);
     });
+    this.element.querySelector('[name="output"]')?.addEventListener("change", () => this.#updateOutput());
+    this.#updateOutput();
     document.body.append(this.element);
   }
 
@@ -116,7 +123,10 @@ export class RenderPanel {
     const fps = Number(data.get("fps"));
     const simulationWorkers = Number(data.get("workers"));
     const startMicroseconds = Math.round(Number(data.get("start")) * 1_000_000);
-    const endMicroseconds = Math.round(Number(data.get("end")) * 1_000_000);
+    const still = data.get("output") === "still";
+    const endMicroseconds = still ? this.#durationMicroseconds : Math.round(Number(data.get("end")) * 1_000_000);
+    const blender = data.get("output") === "blender";
+    const cinematic = data.get("cinematic") === "on";
     const includeAudio = data.get("audio") === "on";
     const carShadows = data.get("shadows") === "on";
     const particles = data.get("particles") === "on";
@@ -142,7 +152,7 @@ export class RenderPanel {
     const inputs = [...form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")];
     inputs.forEach(input => { input.disabled = true; });
     try {
-      const result = await options.onRender({
+      const settings: FrameRenderSettings = {
         width: resolution[0],
         height: resolution[1],
         fps,
@@ -152,7 +162,26 @@ export class RenderPanel {
         carShadows,
         particles,
         skidmarks,
-      }, this.#controller.signal, includeAudio,
+        ...(cinematic ? { cinematic: true } : {}),
+      };
+      if (still) {
+        if (!options.onStill) throw new Error("Still capture is unavailable.");
+        const blob = await options.onStill(settings, this.#controller.signal,
+          (completed, total) => this.#preparationProgress(completed, total));
+        downloadBlob(blob, "png");
+        this.#status.textContent = "Shot ready · PNG at the selected Start time.";
+        return;
+      }
+      if (blender) {
+        if (!options.onBlender) throw new Error("Blender export is unavailable.");
+        const blob = await options.onBlender(settings, this.#controller.signal,
+          (completed, total) => this.#progress(completed, total, "Baking Blender scene"),
+          (completed, total) => this.#preparationProgress(completed, total));
+        downloadBlob(blob, "zip");
+        this.#status.textContent = "Blender archive ready. Extract ZIP, then run import_scene.py in Blender. See README.txt for fidelity notes.";
+        return;
+      }
+      const result = await options.onRender(settings, this.#controller.signal, includeAudio,
       (completed, total) => this.#progress(completed, total),
       (completed, total) => {
         this.#preparationProgress(completed, total);
@@ -174,7 +203,26 @@ export class RenderPanel {
       this.#preparationStartedAt = 0;
       this.#submit.disabled = false;
       inputs.forEach(input => { input.disabled = false; });
+      this.#updateOutput();
     }
+  }
+
+  #updateOutput(): void {
+    const output = this.element.querySelector<HTMLSelectElement>('[name="output"]')?.value;
+    const audio = this.element.querySelector<HTMLInputElement>('[name="audio"]');
+    const cinematic = this.element.querySelector<HTMLInputElement>('[name="cinematic"]');
+    const help = this.element.querySelector<HTMLElement>('[data-output-help]');
+    if (help) help.textContent = output === "blender"
+      ? "Exports the scene and sampled animation. Extract the ZIP, then run import_scene.py in Blender. Materials, lighting and sky may look different. Smoke remains animated cards."
+      : output === "still" ? "Captures the selected Start time as a PNG. Cinematic lighting applies only to the shot; normal navigation stays unchanged."
+      : "Cinematic lighting applies only to the exported video. Normal navigation stays unchanged.";
+    const end = this.element.querySelector<HTMLElement>('[data-render-end]');
+    if (end) end.style.display = output === "still" ? "none" : "";
+    const endInput = end?.querySelector<HTMLInputElement>("input");
+    if (endInput) endInput.disabled = output === "still";
+    if (audio) audio.disabled = output !== "video";
+    if (cinematic) cinematic.disabled = output === "blender";
+    this.#submit.textContent = output === "blender" ? "Export Blender scene" : output === "still" ? "Capture PNG" : "Render Video";
   }
 
   #progress(completed: number, total: number, label = "Rendering"): void {
@@ -205,11 +253,15 @@ function formatDuration(milliseconds: number): string {
 }
 
 function downloadVideo(result: VideoExportResult): void {
-  const url = URL.createObjectURL(result.blob);
+  downloadBlob(result.blob, result.extension);
+}
+
+function downloadBlob(blob: Blob, extension: string): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   link.href = url;
-  link.download = `polyviewer-${stamp}.${result.extension}`;
+  link.download = `polyviewer-${stamp}.${extension}`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

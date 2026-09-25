@@ -137,7 +137,9 @@ body.polyviewer-clean-preview #ui [class*="error" i] {
 }
 
 .polyviewer-render-dialog {
-  width: min(370px, calc(100vw - 32px));
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
   padding: 0;
   border: 2px solid rgb(75 125 255 / 70%);
   border-radius: 8px;

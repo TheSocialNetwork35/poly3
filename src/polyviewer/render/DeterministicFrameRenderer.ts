@@ -3,6 +3,7 @@ import type { SceneEvaluator } from "../scene/SceneEvaluator";
 import { frameCountForRange, frameTimeMicroseconds } from "./FrameSchedule";
 
 export interface FrameRenderSettings {
+  cinematic?: boolean;
   width: number;
   height: number;
   fps: number;
@@ -51,12 +52,19 @@ export class DeterministicFrameRenderer {
     );
     const editorState = this.#sceneEvaluator.captureEditorState();
     const guard = new CaptureGuard(this.#renderer.canvas, options.signal);
+    let cinematic: { render(shadows?: boolean): void; dispose(): void } | undefined;
     try {
       guard.check();
       this.#renderer.polyviewerBeginCapture(settings.width, settings.height, {
         particles: settings.particles !== false,
         skidmarks: settings.skidmarks !== false,
+        ...(settings.cinematic ? { cinematic: true } : {}),
       });
+      if (settings.cinematic) {
+        const { CinematicCapture } = await guard.wait(import("./CinematicCapture"));
+        guard.check();
+        cinematic = new CinematicCapture(this.#renderer, settings.width, settings.height);
+      }
       let lastYield = performance.now();
       if (options.signal?.aborted) throw new DOMException("Rendering cancelled.", "AbortError");
       this.#sceneEvaluator.evaluateRenderFrame(0, false);
@@ -85,6 +93,7 @@ export class DeterministicFrameRenderer {
         if (index > 0) this.#sceneEvaluator.evaluateRenderFrame(timestamp, true);
         guard.check();
         this.#renderer.polyviewerRenderFrame(settings.carShadows !== false);
+        cinematic?.render(settings.carShadows !== false);
         guard.check();
         const image = options.captureImage === false
           ? undefined
@@ -102,7 +111,7 @@ export class DeterministicFrameRenderer {
     } finally {
       guard.dispose();
       try {
-        this.#renderer.polyviewerEndCapture();
+        try { cinematic?.dispose(); } finally { this.#renderer.polyviewerEndCapture(); }
       } finally {
         this.#sceneEvaluator.restoreEditorState(editorState);
       }

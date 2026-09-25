@@ -114,3 +114,17 @@ The unmodified upstream PolyTrack distribution lives in `vendor/polytrack-0.6.2`
 The original HTTP API rejects unrecognized browser origins. The build therefore redirects only the eight verified HTTP call sites to a same-origin Pages Function. That function has a version, endpoint, method, origin, and request-size allowlist and streams responses without caching. The two multiplayer WebSocket call sites remain direct and unmodified.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/UPSTREAM.md`](docs/UPSTREAM.md).
+
+## Cinematic shots and Blender scenes
+
+Open a replay, enter PolyViewer, then choose **Render**. The Capture & Export dialog now offers:
+
+- **Video (MP4)**: the existing deterministic video/audio export.
+- **Still image (PNG)**: a full-resolution image at the selected Start time, including particle/skid pre-roll and every enabled replay.
+- **Blender scene (ZIP + importer)**: select range and FPS, extract the entire downloaded ZIP, open `import_scene.py` in Blender's Scripting workspace and run it. The importer creates a new scene without clearing your existing scene. Save it as `.blend`; images are packed and animations use ordinary Blender keyframes, without a playback handler or external runtime dependency.
+
+**Cinematic shader** is off by default and only applies to PNG/MP4 capture. It adds cascaded track shadows where supported, soft shadow filtering, geometry-based screen-space contact occlusion, multisampled rendering, subtle bloom, ACES filmic tone mapping, and a rounded light response on the existing native smoke billboards. This is an offline raster look, not Cycles path tracing or a fluid simulation. Its modules, GPU buffers, material variants and scene traversals are only created after an explicit cinematic capture. The normal navigation/render loop has no added postprocessing. Capture cleanup restores original material references, shadow flags, renderer settings and editor state, including cancellation/failure.
+
+Blender exports bake evaluated world transforms, every track/building instance, wheels, suspension morphs, camera pose and vertical FOV at the chosen output FPS. The original Camera Point data is also retained on the Blender scene. Meshes, vertex colors, UVs, texture transforms, material groups, sampled visibility, native smoke cards and evolving skid geometry are included. Native projected-shadow matrices that cannot be expressed as Blender location/rotation/scale are baked into vertices. Static geometry is shared, and frame files store only changed objects. A 512 MiB uncompressed archive budget stops oversized jobs with a shorter-range suggestion.
+
+Fidelity boundaries: transforms match at sampled output frames; Blender linearly interpolates between them. Materials are translated to Principled BSDF/emission, rather than copying GLSL. The procedural sky is replaced by a Blender world. Sun direction is copied; illumination/color management and smoke-card shading will differ from the game. Smoke is exported as animated textured cards, not a volumetric simulation. The archive README and Blender text block list scene-specific warnings. The initial Blender target is 4.2+, with the end-to-end import/save/render checked in Blender 5.2.1.

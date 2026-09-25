@@ -13,7 +13,7 @@ import { MasterTimeline } from "./polyviewer/timeline/MasterTimeline";
 import { EditorShell } from "./polyviewer/ui/EditorShell";
 import { CameraMovePanel } from "./polyviewer/ui/CameraMovePanel";
 import { ReplayTimeline } from "./polyviewer/ui/ReplayTimeline";
-import { RenderPanel } from "./polyviewer/ui/RenderPanel";
+import { RenderPanel, type RenderPanelOptions } from "./polyviewer/ui/RenderPanel";
 
 installPackedReplayStoreFactory();
 
@@ -35,7 +35,17 @@ const cameraMovePanel = new CameraMovePanel({
   },
 });
 const cameraEditAuthority = new CameraEditAuthority();
+let captureStill: RenderPanelOptions["onStill"];
+let exportBlenderScene: RenderPanelOptions["onBlender"];
 const renderPanel = new RenderPanel({
+  onStill: (...args) => {
+    if (!captureStill) throw new Error("Open a replay first.");
+    return captureStill(...args);
+  },
+  onBlender: (...args) => {
+    if (!exportBlenderScene) throw new Error("Open a replay first.");
+    return exportBlenderScene(...args);
+  },
   onRender: (settings, signal, includeAudio, onProgress, onPreparationProgress, onAudioProgress, onAudioWarning) => {
     if (!videoExporter) throw new Error("The PolyTrack renderer is not ready yet.");
     return videoExporter.export(settings, {
@@ -207,6 +217,21 @@ void waitForPolyTrackBridge()
     );
     const frameRenderer = new DeterministicFrameRenderer(bridge.renderer, sceneEvaluator);
     videoExporter = new VideoExporter(frameRenderer, bridge.canvas, bridge.audio, replayBridge);
+    captureStill = async (settings, signal, onProgress) => {
+      const range = { ...settings, endMicroseconds: Math.min(settings.endMicroseconds,
+        settings.startMicroseconds + Math.floor(1_000_000 / settings.fps)) };
+      let image: Blob | undefined;
+      try {
+        await replayBridge!.prepareAllForRender(range, signal, onProgress);
+        await frameRenderer.render(range, { signal, onFrame: frame => { image = frame.image; } });
+        if (!image) throw new Error("Shot capture produced no image.");
+        return image;
+      } finally { replayBridge!.releaseRenderPreparation(); }
+    };
+    exportBlenderScene = async (settings, signal, onProgress, onPreparationProgress) => {
+      const { exportBlender } = await import("./polyviewer/blender/BlenderExporter");
+      return exportBlender(bridge, frameRenderer, replayBridge!, cameraPoints.points, settings, signal, onProgress, onPreparationProgress);
+    };
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
     window.addEventListener("pagehide", () => {
       cameraController?.dispose();
