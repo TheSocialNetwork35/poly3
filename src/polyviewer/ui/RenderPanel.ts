@@ -213,7 +213,7 @@ export class RenderPanel {
     const cinematic = this.element.querySelector<HTMLInputElement>('[name="cinematic"]');
     const help = this.element.querySelector<HTMLElement>('[data-output-help]');
     if (help) help.textContent = output === "blender"
-      ? "Exports the scene and sampled animation. Extract the ZIP, then run import_scene.py in Blender. Materials, lighting and sky may look different. Smoke remains animated cards."
+      ? "Exports the scene and sampled animation. Extract the ZIP, then run import_scene.py in Blender. Materials, lighting and sky may look different. Smoke remains animated cards. PolyTrack shadow meshes are omitted; Blender lights create the shadows."
       : output === "still" ? "Captures the selected Start time as a PNG. Enable Use shader settings to apply the look configured in Shaders."
       : "Enable Use shader settings to apply the look configured in Shaders. Live preview is independent of this export option.";
     const end = this.element.querySelector<HTMLElement>('[data-render-end]');

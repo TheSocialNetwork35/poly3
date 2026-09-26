@@ -39,6 +39,16 @@ data = dict(version=1, carLightsVersion=1, deltaFrames=True, fps=30, width=640, 
             startMicroseconds=0, cameraPoints=[], warnings=[], textures={}, materials=materials,
             geometries={'body': dict(position=positions, indices=indices, groups=groups),
                         'floor': dict(position=[-20,0,-20,20,0,-20,20,0,20,-20,0,20], indices=[0,2,1,0,3,2], groups=[])})
+# Exercise split resource files, which replace the giant monolithic scene JSON.
+resource_files = {}
+for kind in ('geometries', 'materials', 'textures'):
+    resource_files[kind] = {}
+    for index, (key, value) in enumerate(data.pop(kind).items()):
+        path = Path('resources') / kind / ('%d.json' % index)
+        (ROOT/path).parent.mkdir(parents=True, exist_ok=True)
+        (ROOT/path).write_text(json.dumps(value))
+        resource_files[kind][key] = str(path)
+data['resourceFiles'] = resource_files
 (ROOT/'scene.json').write_text(json.dumps(data)); (ROOT/'frames').mkdir()
 for frame in range(1,5):
     cars = [dict(id='a',name='Car A',matrix=columns(chassis(0, math.pi if frame==2 else 0)),braking=frame==2,opacity=1)]
@@ -54,8 +64,11 @@ script = ROOT/'import_scene.py'; script.write_text((REPO/'src/polyviewer/blender
 ns = runpy.run_path(str(script)); scene=ns['scene']; rigs=ns['car_rigs']
 assert scene.world.node_tree.nodes['Background'].inputs['Strength'].default_value == 0
 assert len(rigs)==2
+for rig in rigs.values():
+    rear_material = rig[2][2].data.materials[0]
+    assert rear_material.node_tree.animation_data is None, 'Rear material must not animate'
 assert len([o for o in scene.objects if o.type=='LIGHT'])==6
-for frame, brake_a, brake_b, visible_b in [(1,0,4,True),(1.5,0,4,True),(2,8,0,True),(2.5,8,0,True),(3,0,0,False),(4,0,4,True)]:
+for frame, brake_a, brake_b, visible_b in [(1,0,150,True),(1.5,0,150,True),(2,300,0,True),(2.5,300,0,True),(3,0,0,False),(4,0,150,True)]:
     scene.frame_set(int(frame), subframe=frame%1)
     assert rigs['a'][1][2].data.energy == brake_a, (frame, 'brake A')
     assert rigs['b'][1][2].data.energy == brake_b, (frame, 'brake B')
@@ -70,7 +83,7 @@ front_direction=(lamps[0].matrix_world.to_quaternion() @ Vector((0,0,-1))).norma
 assert front_direction.dot((expected.to_3x3() @ Vector((0,-.035,1))).normalized()) > .99999
 rear_direction=(lamps[2].matrix_world.to_quaternion() @ Vector((0,0,-1))).normalized()
 assert rear_direction.dot((expected.to_3x3() @ Vector((0,0,-1))).normalized()) > .99999
-assert all(lamp.data.energy == 80 for lamp in lamps[:2])
+assert all(lamp.data.energy == 1500 for lamp in lamps[:2])
 scene.frame_set(1)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'verified-car-lights.blend'))
 # One-off render checks on the imported scene. Use a small CPU render.
@@ -100,7 +113,10 @@ image=bpy.data.images.load(str(ROOT/'all-lights-off.png'),check_existing=False)
 pixels=list(image.pixels)
 assert max(v for i,v in enumerate(pixels) if i%4 != 3) < .001, ('Unexpected hidden illumination', max(pixels[0::4]), max(pixels[1::4]), max(pixels[2::4]))
 # Old archive compatibility is explicit: no guessed brake animation.
-data.pop('carLightsVersion');(ROOT/'scene.json').write_text(json.dumps(data))
+data.pop('carLightsVersion')
+for kind, files in data.pop('resourceFiles').items():
+    data[kind] = {key: json.loads((ROOT/path).read_text()) for key, path in files.items()}
+(ROOT/'scene.json').write_text(json.dumps(data))
 for f in (ROOT/'frames').glob('*.json'):
     snapshot=json.loads(f.read_text());snapshot.pop('cars');f.write_text(json.dumps(snapshot))
 legacy=runpy.run_path(str(script))

@@ -10,8 +10,8 @@ from mathutils import Matrix, Vector
 
 # Explicit, editable lighting controls. No hidden environment fill by default.
 WORLD_STRENGTH = 0.0
-HEADLIGHT_POWER = 80.0  # watts per front spotlight
-BRAKE_LIGHT_POWER = 8.0  # watts, keyed to the recorded brake state
+HEADLIGHT_POWER = 1500.0  # watts per front spotlight
+BRAKE_LIGHT_POWER = 300.0  # watts, keyed to the recorded brake input
 ADD_CAR_LIGHTS = True
 
 ROOT = Path(__file__).resolve().parent
@@ -51,8 +51,21 @@ BASIS = Matrix.Rotation(math.pi / 2, 4, 'X')
 def matrix(values):
     return BASIS @ Matrix([values[i::4] for i in range(4)])
 
+def resource(kind, key):
+    path = DATA.get('resourceFiles', {}).get(kind, {}).get(key)
+    if path:
+        resolved = (ROOT / path).resolve()
+        if not resolved.is_relative_to(ROOT):
+            raise RuntimeError('Archive resource must be inside the extracted folder')
+        return json.loads(resolved.read_text())
+    return DATA[kind][key]
+
+def resources(kind):
+    for key in DATA.get('resourceFiles', {}).get(kind, DATA.get(kind, {})):
+        yield key, resource(kind, key)
+
 textures = {}
-for key, texture in DATA['textures'].items():
+for key, texture in resources('textures'):
     data = texture if isinstance(texture, str) else texture['data']
     path = ROOT / ('texture-' + key + '.png')
     path.write_bytes(base64.b64decode(data.split(',', 1)[1]))
@@ -63,7 +76,7 @@ for key, texture in DATA['textures'].items():
     textures[key] = image
 
 materials = {}
-for key, data in DATA['materials'].items():
+for key, data in resources('materials'):
     mat = bpy.data.materials.new(data.get('name') or 'PolyTrack Material')
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
@@ -153,7 +166,7 @@ def get_mesh(key, slots):
     cache_key = (key, tuple(slots))
     if cache_key in meshes:
         return meshes[cache_key]
-    data = DATA['geometries'][key]
+    data = resource('geometries', key)
     p, idx = data['position'], data['indices']
     mesh = bpy.data.meshes.new('PolyTrack Geometry')
     mesh.from_pydata([p[i:i+3] for i in range(0, len(p), 3)], [], [idx[i:i+3] for i in range(0, len(idx)-2, 3)])
@@ -225,6 +238,12 @@ def lens(collection, parent, lamp, name, width, height):
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = nodes.get('Principled BSDF')
     bsdf.inputs['Base Color'].default_value = (*lamp.data.color, 1)
+    if lamp.data.type == 'AREA':
+        # Rear lens stays a plain, unanimated red material. Brake animation
+        # belongs exclusively to the actual Area light's energy channel.
+        mesh.materials.append(mat)
+        light_animation.append(obj)
+        return obj
     emit = nodes.new('ShaderNodeEmission')
     emit.inputs['Color'].default_value = (*lamp.data.color, 1)
     driver = emit.inputs['Strength'].driver_add('default_value').driver
@@ -365,7 +384,7 @@ scene['polyviewer_export_warnings'] = '\n'.join(DATA['warnings'])
 notes = bpy.data.texts.new('PolyViewer Export Notes')
 notes.write('Environment: PolyViewer World > Background > Strength (default 0).\n'
             'Sun: PolyViewer Lighting. Vehicle lamps: PolyViewer Car Lights.\n'
-            'Brake energy uses CONSTANT keyframes from replay brake state.\n'
+            'Brake energy uses CONSTANT keyframes from replay brake input.\n'
             'Material Preview: enable Scene World and Scene Lights, or use Rendered mode.\n\n')
 if not DATA.get('carLightsVersion'):
     notes.write('This older archive has no car/brake metadata. Re-export with the updated website to add vehicle lights.\n')

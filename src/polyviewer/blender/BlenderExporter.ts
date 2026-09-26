@@ -1,6 +1,7 @@
 import { Zip, ZipDeflate, strToU8 } from "fflate";
 import type { Scene, PerspectiveCamera } from "three";
 import { snapshotCarLights } from "./CarLights";
+import { jsonChunks } from "./JsonChunks";
 import { SceneArchive } from "./SceneArchive";
 import importer from "./import_scene.py?raw";
 import type { DeterministicFrameRenderer, FrameRenderSettings } from "../render/DeterministicFrameRenderer";
@@ -17,7 +18,13 @@ export async function exportBlender(
   onProgress: (completed: number, total: number) => void,
   onPreparationProgress: (completed: number, total: number) => void,
 ): Promise<Blob> {
-  const archive = new SceneArchive();
+  const resourceFiles = { geometries: {} as Record<string, string>, materials: {} as Record<string, string>, textures: {} as Record<string, string> };
+  let resourceIndex = 0;
+  const archive = new SceneArchive((kind, key, data) => {
+    const path = `resources/${kind}/${resourceIndex++}.json`;
+    add(path, jsonChunks(data));
+    resourceFiles[kind][key] = path;
+  });
   const chunks: BlobPart[] = [];
   let bytes = 0;
   let sourceBytes = 0;
@@ -31,14 +38,18 @@ export async function exportBlender(
     if (bytes > limit) throw new Error("Blender archive exceeds 512 MiB. Export a shorter range.");
     chunks.push(new Uint8Array(data).buffer);
   });
-  function add(name: string, text: string) {
+  function add(name: string, parts: string | Iterable<string>) {
     signal.throwIfAborted();
-    const data = strToU8(text);
-    sourceBytes += data.byteLength;
-    if (sourceBytes > limit) throw new Error("Baked scene exceeds 512 MiB. Export a shorter range or fewer cars.");
     const file = new ZipDeflate(name, { level: 3 });
     zip.add(file);
-    file.push(data, true);
+    for (const part of typeof parts === "string" ? [parts] : parts) {
+      signal.throwIfAborted();
+      const data = strToU8(part);
+      sourceBytes += data.byteLength;
+      if (sourceBytes > limit) throw new Error("Blender export exceeds the 512 MiB safety budget. Reduce the range or disable smoke/tire marks, then retry.");
+      file.push(data, false);
+    }
+    file.push(new Uint8Array(), true);
   }
   try {
     await replay.prepareAllForRender(settings, signal, onPreparationProgress);
@@ -53,19 +64,18 @@ export async function exportBlender(
           return previousObjects.get(object.id) !== serialized;
         });
         const removed = [...previousObjects.keys()].filter(id => !nextObjects.has(id));
-        add(`frames/${String(frame.index).padStart(6, "0")}.json`, JSON.stringify({ ...snapshot, objects, removed, cars: snapshotCarLights(bridge.replay) }));
+        add(`frames/${String(frame.index).padStart(6, "0")}.json`, jsonChunks({ ...snapshot, objects, removed, cars: snapshotCarLights(bridge.replay) }));
         previousObjects = nextObjects;
         frames++;
       },
     });
-    add("scene.json", JSON.stringify({
-      version: 1, carLightsVersion: 1, deltaFrames: true, fps: settings.fps, width: settings.width, height: settings.height,
+    add("scene.json", jsonChunks({
+      version: 1, carLightsVersion: 2, deltaFrames: true, fps: settings.fps, width: settings.width, height: settings.height,
       startMicroseconds: settings.startMicroseconds, frameCount: frames,
-      cameraPoints, geometries: archive.geometries, materials: archive.materials,
-      textures: archive.textures, warnings: [...archive.warnings],
+      cameraPoints, resourceFiles, warnings: [...archive.warnings],
     }));
     add("import_scene.py", importer);
-    add("README.txt", `PolyViewer Blender scene\n\n1. Extract the entire ZIP into a folder.\n2. In Blender (4.2+), open Scripting, open import_scene.py, then Run Script.\n3. A NEW scene is created; save the result as .blend. Textures are packed.\n\nTransforms and camera FOV are baked at ${settings.fps} FPS. Between sampled frames Blender interpolates linearly. Camera-point source data is stored on the scene.\nLighting: World Properties > PolyViewer World > Background > Strength starts at 0. Scene sun is in PolyViewer Lighting. Vehicle lamps are in PolyViewer Car Lights: two Headlights and one Brake Light per car. Brake energy is keyed from the recorded brake state. Use Rendered shading, or enable Scene Lights and Scene World in Material Preview. Edit powers near the top of import_scene.py before running.\nCustom game shaders cannot render identically in Cycles. This is not a fluid/volume simulation export.\n\n${[...archive.warnings].join("\n")}\n`);
+    add("README.txt", `PolyViewer Blender scene\n\n1. Extract the entire ZIP into a folder.\n2. In Blender (4.2+), open Scripting, open import_scene.py, then Run Script.\n3. A NEW scene is created; save the result as .blend. Textures are packed.\n\nTransforms and camera FOV are baked at ${settings.fps} FPS. Between sampled frames Blender interpolates linearly. Camera-point source data is stored on the scene.\nKeep the resources/ folder beside scene.json and frames/. PolyTrack projected shadow meshes are omitted; Blender lights produce real shadows.\nLighting: World Properties > PolyViewer World > Background > Strength starts at 0. Scene sun is in PolyViewer Lighting. Vehicle lamps are in PolyViewer Car Lights: two Headlights and one Brake Light per car. Brake energy is keyed from the recorded brake input. Use Rendered shading, or enable Scene Lights and Scene World in Material Preview. Edit powers near the top of import_scene.py before running.\nCustom game shaders cannot render identically in Cycles. This is not a fluid/volume simulation export.\n\n${[...archive.warnings].join("\n")}\n`);
     zip.end();
     return new Blob(chunks, { type: "application/zip" });
   } finally {
