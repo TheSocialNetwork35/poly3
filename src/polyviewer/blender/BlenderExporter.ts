@@ -29,16 +29,10 @@ export async function exportBlender(
     resourceFiles[kind][key] = path;
   });
   const chunks: BlobPart[] = [];
-  let bytes = 0;
-  let sourceBytes = 0;
   let frames = 0;
   let previousObjects = new Map<string, string>();
-  // Bound memory instead of silently crashing the tab on huge baked effects.
-  const limit = 512 * 1024 * 1024;
   const zip = new Zip((error, data) => {
     if (error) throw error;
-    bytes += data.byteLength;
-    if (bytes > limit) throw new Error("Blender archive exceeds 512 MiB. Export a shorter range.");
     chunks.push(new Blob([new Uint8Array(data).buffer]));
   });
   function add(name: string, parts: string | Iterable<string>, executable = false) {
@@ -49,8 +43,6 @@ export async function exportBlender(
     for (const part of typeof parts === "string" ? [parts] : parts) {
       signal.throwIfAborted();
       const data = strToU8(part);
-      sourceBytes += data.byteLength;
-      if (sourceBytes > limit) throw new Error("Blender export exceeds the 512 MiB safety budget. Reduce the range or disable smoke/tire marks, then retry.");
       file.push(data, false);
     }
     file.push(new Uint8Array(), true);
