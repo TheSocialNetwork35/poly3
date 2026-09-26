@@ -125,7 +125,7 @@ export class SceneArchive {
       } catch { this.warnings.add(`Texture unavailable: ${map.name || map.uuid}`); }
     }
     const baseColor = m.color?.toArray() ?? [1,1,1];
-    const data = { color: tint ? baseColor.map((v, i) => v * tint.toArray()[i]!) : baseColor, opacity: m.opacity, roughness: m.roughness ?? 0.75, metalness: m.metalness ?? 0, texture: map?.uuid, flipY: map?.flipY, textureMatrix: map ? (map.matrixAutoUpdate && map.updateMatrix(), map.matrix.toArray()) : undefined, vertexColors: m.vertexColors, unlit: m.type === "MeshBasicMaterial", emissive: m.emissive?.toArray(), emissiveIntensity: m.emissiveIntensity, transmission: m.transmission, ior: m.ior, alphaTest: m.alphaTest };
+    const data = { name: m.name, color: tint ? baseColor.map((v, i) => v * tint.toArray()[i]!) : baseColor, opacity: m.opacity, roughness: m.roughness ?? 0.75, metalness: m.metalness ?? 0, texture: map?.uuid, flipY: map?.flipY, textureMatrix: map ? (map.matrixAutoUpdate && map.updateMatrix(), map.matrix.toArray()) : undefined, vertexColors: m.vertexColors, unlit: m.type === "MeshBasicMaterial", emissive: m.emissive?.toArray(), emissiveIntensity: m.emissiveIntensity, transmission: m.transmission, ior: m.ior, alphaTest: m.alphaTest };
     const key = `${m.uuid}:${JSON.stringify(data)}`;
     this.materials[key] = data;
     return key;

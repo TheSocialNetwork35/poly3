@@ -119,6 +119,7 @@ declare global {
   }
 
   interface PolyTrackCarTarget {
+    polyviewerGetExportCar?(): { matrix: number[]; braking: boolean; visible: boolean };
     getPosition(): { x: number; y: number; z: number };
     getQuaternion(): { x: number; y: number; z: number; w: number };
   }

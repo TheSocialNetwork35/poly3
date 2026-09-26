@@ -8,6 +8,12 @@ import base64
 from pathlib import Path
 from mathutils import Matrix, Vector
 
+# Explicit, editable lighting controls. No hidden environment fill by default.
+WORLD_STRENGTH = 0.0
+HEADLIGHT_POWER = 80.0  # watts per front spotlight
+BRAKE_LIGHT_POWER = 8.0  # watts, keyed to the recorded brake state
+ADD_CAR_LIGHTS = True
+
 ROOT = Path(__file__).resolve().parent
 DATA = json.loads((ROOT / 'scene.json').read_text())
 if DATA.get('version') != 1:
@@ -26,7 +32,18 @@ scene.cycles.use_denoising = True
 scene.world = bpy.data.worlds.new('PolyViewer World')
 scene.world.use_nodes = True
 scene.world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.3, 0.4, 0.55, 1)
-scene.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.5
+scene.world.node_tree.nodes['Background'].inputs['Strength'].default_value = WORLD_STRENGTH
+scene.world.node_tree.nodes['Background'].label = 'Environment fill (0 = off)'
+lighting = bpy.data.collections.new('PolyViewer Lighting')
+scene.collection.children.link(lighting)
+car_lighting = bpy.data.collections.new('PolyViewer Car Lights')
+scene.collection.children.link(car_lighting)
+# Material Preview otherwise uses Blender's studio HDRI instead of scene lighting.
+for screen in bpy.data.screens:
+    for area in screen.areas:
+        if area.type == 'VIEW_3D':
+            area.spaces.active.shading.use_scene_world = True
+            area.spaces.active.shading.use_scene_lights = True
 # A single rigid rotation maps Three.js Y-up to Blender Z-up for all objects,
 # including cameras. No per-object axis swaps or Euler reconstruction.
 BASIS = Matrix.Rotation(math.pi / 2, 4, 'X')
@@ -47,7 +64,7 @@ for key, texture in DATA['textures'].items():
 
 materials = {}
 for key, data in DATA['materials'].items():
-    mat = bpy.data.materials.new('PolyTrack Material')
+    mat = bpy.data.materials.new(data.get('name') or 'PolyTrack Material')
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = nodes.get('Principled BSDF')
@@ -59,6 +76,8 @@ for key, data in DATA['materials'].items():
     bsdf.inputs['IOR'].default_value = data.get('ior') or 1.5
     bsdf.inputs['Emission Color'].default_value = (*(data.get('emissive') or [0,0,0]), 1)
     bsdf.inputs['Emission Strength'].default_value = data.get('emissiveIntensity') or 0
+    if DATA.get('carLightsVersion') and data.get('name') == 'BrakeLight':
+        bsdf.inputs['Emission Strength'].default_value = 0  # the named brake lamp owns illumination
     source = None
     if data.get('texture') in textures:
         tex = nodes.new('ShaderNodeTexImage')
@@ -120,7 +139,13 @@ for key, data in DATA['materials'].items():
             links.new(bsdf.inputs['Alpha'].links[0].from_socket, mix.inputs[0])
         else:
             mix.inputs[0].default_value = data['opacity']
-        links.new(mix.outputs[0], nodes.get('Material Output').inputs['Surface'])
+        # MeshBasicMaterial means unlit in the game, not an invisible area lamp.
+        ray = nodes.new('ShaderNodeLightPath')
+        camera_mix = nodes.new('ShaderNodeMixShader')
+        links.new(ray.outputs['Is Camera Ray'], camera_mix.inputs[0])
+        links.new(bsdf.outputs[0], camera_mix.inputs[1])
+        links.new(mix.outputs[0], camera_mix.inputs[2])
+        links.new(camera_mix.outputs[0], nodes.get('Material Output').inputs['Surface'])
     materials[key] = mat
 
 meshes = {}
@@ -179,6 +204,97 @@ def visible(obj, value, frame):
     obj.keyframe_insert(data_path='hide_render', frame=frame)
     obj.keyframe_insert(data_path='hide_viewport', frame=frame)
 
+# The verified 0.6.2 Body mesh uses +Z forward and Y up. These mounts sit
+# just outside the nose and the model's existing single rear BrakeLight strip.
+# Parent coordinates stay in Three.js axes; BASIS is applied once to the chassis.
+FRONT_MOUNTS = ((-0.235, -0.285, 1.65), (0.235, -0.285, 1.65))
+REAR_MOUNT = (0.0, -0.119, -1.90)
+car_rigs = {}
+light_animation = []
+
+def lens(collection, parent, lamp, name, width, height):
+    mesh = bpy.data.meshes.new(name + ' Lens')
+    mesh.from_pydata([(-width/2,-height/2,0), (width/2,-height/2,0),
+                      (width/2,height/2,0), (-width/2,height/2,0)], [], [(0,1,2,3)])
+    obj = bpy.data.objects.new(name + ' Lens', mesh)
+    collection.objects.link(obj)
+    obj.parent = parent
+    obj.location = lamp.location
+    mat = bpy.data.materials.new(name + ' Glow')
+    mat.use_nodes = True
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    bsdf = nodes.get('Principled BSDF')
+    bsdf.inputs['Base Color'].default_value = (*lamp.data.color, 1)
+    emit = nodes.new('ShaderNodeEmission')
+    emit.inputs['Color'].default_value = (*lamp.data.color, 1)
+    driver = emit.inputs['Strength'].driver_add('default_value').driver
+    driver.expression = 'min(power, 1.0) * 6.0 * (1.0 - hidden)'
+    for name, owner, path, id_type in [('power', lamp.data, 'energy', 'LIGHT'), ('hidden', lamp, 'hide_render', 'OBJECT')]:
+        variable = driver.variables.new(); variable.name = name; variable.type = 'SINGLE_PROP'
+        variable.targets[0].id_type = id_type; variable.targets[0].id = owner; variable.targets[0].data_path = path
+    # Visible lens glow, with all actual illumination owned by the named lamp.
+    ray = nodes.new('ShaderNodeLightPath'); mix = nodes.new('ShaderNodeMixShader')
+    links.new(ray.outputs['Is Camera Ray'], mix.inputs[0])
+    links.new(bsdf.outputs[0], mix.inputs[1]); links.new(emit.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], nodes.get('Material Output').inputs['Surface'])
+    mesh.materials.append(mat)
+    light_animation.append(obj)
+    return obj
+
+def make_car_rig(car):
+    name = '%s [%s]' % (car['name'], car['id'])
+    collection = bpy.data.collections.new(name)
+    car_lighting.children.link(collection)
+    root = bpy.data.objects.new(name + ' Light Rig', None)
+    root.empty_display_type = 'PLAIN_AXES'; root.empty_display_size = 0.2
+    root['polyviewer_car_id'] = car['id']
+    collection.objects.link(root)
+    light_animation.append(root)
+    lamps, lenses = [], []
+    for index, position in enumerate((*FRONT_MOUNTS, REAR_MOUNT)):
+        rear = index == 2
+        title = name + (' Brake Light' if rear else (' Headlight Left' if index == 0 else ' Headlight Right'))
+        data = bpy.data.lights.new(title, 'AREA' if rear else 'SPOT')
+        data.color = (1.0, 0.0, 0.0) if rear else (1.0, 0.94, 0.82)
+        data.energy = 0.0
+        if rear:
+            data.shape = 'RECTANGLE'; data.size = 0.48; data.size_y = 0.055
+        else:
+            data.spot_size = math.radians(52); data.spot_blend = 0.55
+            data.shadow_soft_size = 0.025
+        lamp = bpy.data.objects.new(title, data)
+        collection.objects.link(lamp); lamp.parent = root; lamp.location = position
+        direction = Vector((0, 0, -1) if rear else (0, -0.035, 1))
+        lamp.rotation_mode = 'QUATERNION'
+        lamp.rotation_quaternion = direction.to_track_quat('-Z', 'Y')
+        lamps.append(lamp)
+        lenses.append(lens(collection, root, lamp, title, 0.48 if rear else 0.11, 0.055))
+        light_animation.extend([lamp, data])
+    return root, lamps, lenses
+
+def update_car_lights(cars, frame):
+    seen = set()
+    for car in cars:
+        key = car['id']; seen.add(key)
+        if key not in car_rigs:
+            car_rigs[key] = make_car_rig(car)
+            if frame > 1:
+                for obj in [*car_rigs[key][1], *car_rigs[key][2]]:
+                    visible(obj, False, 1)
+                for lamp in car_rigs[key][1]:
+                    lamp.data.keyframe_insert(data_path='energy', frame=1)
+        root, lamps, lenses = car_rigs[key]
+        pose(root, car['matrix'], frame)
+        for index, lamp in enumerate(lamps):
+            visible(lamp, True, frame); visible(lenses[index], True, frame)
+            lamp.data.energy = (BRAKE_LIGHT_POWER if car.get('braking') else 0.0) if index == 2 else HEADLIGHT_POWER
+            lamp.data.energy *= max(0.0, min(1.0, car.get('opacity', 1.0)))
+            lamp.data.keyframe_insert(data_path='energy', frame=frame)
+    for key in car_rigs.keys() - seen:
+        for lamp, glass in zip(car_rigs[key][1], car_rigs[key][2]):
+            visible(lamp, False, frame); visible(glass, False, frame)
+            lamp.data.energy = 0; lamp.data.keyframe_insert(data_path='energy', frame=frame)
+
 active = set()
 current_objects = {}
 for frame in range(1, DATA['frameCount'] + 1):
@@ -192,13 +308,15 @@ for frame in range(1, DATA['frameCount'] + 1):
     if frame == 1:
         for light in snapshot.get('lights', []):
             sun = bpy.data.objects.new('PolyTrack Sun', bpy.data.lights.new('PolyTrack Sun', 'SUN'))
-            scene.collection.objects.link(sun)
+            lighting.objects.link(sun)
             sun.data.color = light['color']
             sun.data.energy = light['intensity']
             sun.data.angle = math.radians(2)
             direction = BASIS.to_3x3() @ (Vector(light['target']) - Vector(light['position']))
             if direction.length > 0:
                 sun.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+    if ADD_CAR_LIGHTS:
+        update_car_lights(snapshot.get('cars', []), frame)
     seen = set()
     for item in snapshot['objects']:
         key = (item['id'], item['geometry'], tuple(item['materials']))
@@ -229,7 +347,7 @@ for frame in range(1, DATA['frameCount'] + 1):
     camera.data.keyframe_insert(data_path='lens', frame=frame)
 
 # Blender 4.4+ layered actions and older legacy actions are both supported.
-imported_actions = {obj.animation_data.action for obj in [*objects.values(), camera, camera.data]
+imported_actions = {obj.animation_data.action for obj in [*objects.values(), camera, camera.data, *light_animation]
                     if obj.animation_data and obj.animation_data.action}
 for action in imported_actions:
     curves = list(getattr(action, 'fcurves', []))
@@ -239,12 +357,18 @@ for action in imported_actions:
                 curves.extend(bag.fcurves)
     for curve in curves:
         for point in curve.keyframe_points:
-            point.interpolation = 'CONSTANT' if curve.data_path in ('hide_render','hide_viewport') else 'LINEAR'
+            point.interpolation = 'CONSTANT' if curve.data_path in ('hide_render','hide_viewport','energy') else 'LINEAR'
 
 scene['polyviewer_start_microseconds'] = DATA['startMicroseconds']
 scene['polyviewer_camera_path'] = json.dumps(DATA['cameraPoints'])
 scene['polyviewer_export_warnings'] = '\n'.join(DATA['warnings'])
 notes = bpy.data.texts.new('PolyViewer Export Notes')
-notes.write('\n'.join(DATA['warnings']) or 'Geometry and transforms baked at the selected output FPS.')
+notes.write('Environment: PolyViewer World > Background > Strength (default 0).\n'
+            'Sun: PolyViewer Lighting. Vehicle lamps: PolyViewer Car Lights.\n'
+            'Brake energy uses CONSTANT keyframes from replay brake state.\n'
+            'Material Preview: enable Scene World and Scene Lights, or use Rendered mode.\n\n')
+if not DATA.get('carLightsVersion'):
+    notes.write('This older archive has no car/brake metadata. Re-export with the updated website to add vehicle lights.\n')
+notes.write('\n'.join(DATA['warnings']))
 scene.frame_set(1)
 print('PolyViewer import complete. Save as .blend to keep the editable scene and packed textures.')
