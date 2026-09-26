@@ -140,4 +140,18 @@ for f in (ROOT/'frames').glob('*.json'):
     snapshot=json.loads(f.read_text());snapshot.pop('cars');f.write_text(json.dumps(snapshot))
 legacy=runpy.run_path(str(script))
 assert not legacy['car_rigs']
+# Text Editor may lose __file__; resolve its real text path or offer a picker.
+assert ns['find_archive']('/import_scene.py', str(script)) == ROOT.resolve()
+assert ns['find_archive']('/missing-polyviewer/import_scene.py') is None
+before = len(bpy.data.scenes)
+try:
+    ns['import_archive'](ROOT / 'missing')
+    raise AssertionError('An incomplete archive must fail before creating a scene')
+except RuntimeError as error:
+    assert 'Extract the entire export ZIP' in str(error)
+assert len(bpy.data.scenes) == before
+ns['register_archive_picker']()
+ns['register_archive_picker']()  # Running the text again must not break registration.
+assert bpy.ops.polyviewer.import_archive('EXEC_DEFAULT', filepath=str(ROOT/'scene.json')) == {'FINISHED'}
+assert len(bpy.data.scenes) == before + 1
 print('POLYVIEWER_LIGHTS_PASS',ROOT)
