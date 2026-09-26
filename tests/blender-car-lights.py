@@ -37,7 +37,7 @@ materials['unlit'] = dict(color=[1,1,1], opacity=1, roughness=1, metalness=0, un
 materials['ground'] = dict(color=[.2,.2,.2], opacity=1, roughness=1, metalness=0)
 data = dict(version=1, carLightsVersion=1, deltaFrames=True, fps=30, width=640, height=360, frameCount=4,
             startMicroseconds=0, cameraPoints=[], warnings=[], textures={}, materials=materials,
-            geometries={'body': dict(position=positions, indices=indices, groups=groups),
+            geometries={'body': dict(position=positions, normal=[0,1,0]*(len(positions)//3), indices=indices, groups=groups),
                         'floor': dict(position=[-20,0,-20,20,0,-20,20,0,20,-20,0,20], indices=[0,2,1,0,3,2], groups=[])})
 # Exercise split resource files, which replace the giant monolithic scene JSON.
 resource_files = {}
@@ -64,6 +64,24 @@ script = ROOT/'import_scene.py'; script.write_text((REPO/'src/polyviewer/blender
 ns = runpy.run_path(str(script)); scene=ns['scene']; rigs=ns['car_rigs']
 assert scene.world.node_tree.nodes['Background'].inputs['Strength'].default_value == 0
 assert len(rigs)==2
+for obj in scene.objects:
+    if obj.get('polyviewer_id') in ('a', 'b'):
+        assert not any(p.use_smooth for p in obj.data.polygons), 'Car must use flat shading'
+        assert not obj.data.has_custom_normals, 'Car must not retain smooth custom normals'
+# Check actual distance to the shipped mesh, independently of importer constants.
+from mathutils.bvhtree import BVHTree
+brake_polygons = [tuple(p.vertices) for p in body.data.polygons if body.data.materials[p.material_index].name == 'BrakeLight']
+body_vertices = [BASIS.inverted() @ body.matrix_world @ v.co for v in body.data.vertices]
+brake_surface = BVHTree.FromPolygons(body_vertices, brake_polygons)
+for rig in rigs.values():
+    rear_lens = rig[2][2]
+    for vertex in rear_lens.data.vertices:
+        location = rear_lens.location + vertex.co
+        nearest, normal, _, distance = brake_surface.find_nearest(location)
+        assert abs(distance - .001) < 2e-6, ('Rear lens clearance', distance)
+        assert (location-nearest).dot(normal) > 0, 'Lens must sit outside the body'
+    _, _, _, distance = brake_surface.find_nearest(rig[1][2].location)
+    assert abs(distance - .001) < 2e-6, ('Rear lamp clearance', distance)
 for rig in rigs.values():
     rear_material = rig[2][2].data.materials[0]
     assert rear_material.node_tree.animation_data is None, 'Rear material must not animate'
@@ -82,7 +100,7 @@ for lamp,mount in zip(lamps,(*ns['FRONT_MOUNTS'],ns['REAR_MOUNT'])):
 front_direction=(lamps[0].matrix_world.to_quaternion() @ Vector((0,0,-1))).normalized()
 assert front_direction.dot((expected.to_3x3() @ Vector((0,-.035,1))).normalized()) > .99999
 rear_direction=(lamps[2].matrix_world.to_quaternion() @ Vector((0,0,-1))).normalized()
-assert rear_direction.dot((expected.to_3x3() @ Vector((0,0,-1))).normalized()) > .99999
+assert rear_direction.dot((expected.to_3x3() @ ns['REAR_NORMAL']).normalized()) > .99999
 assert all(lamp.data.energy == 1500 for lamp in lamps[:2])
 scene.frame_set(1)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'verified-car-lights.blend'))

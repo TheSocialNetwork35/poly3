@@ -5,6 +5,7 @@ import bpy
 import json
 import math
 import base64
+import re
 from pathlib import Path
 from mathutils import Matrix, Vector
 
@@ -162,8 +163,8 @@ for key, data in resources('materials'):
     materials[key] = mat
 
 meshes = {}
-def get_mesh(key, slots):
-    cache_key = (key, tuple(slots))
+def get_mesh(key, slots, flat=False):
+    cache_key = (key, tuple(slots), flat)
     if cache_key in meshes:
         return meshes[cache_key]
     data = resource('geometries', key)
@@ -186,7 +187,7 @@ def get_mesh(key, slots):
         size = data.get('colorSize') or 3
         for i, value in enumerate(attr.data):
             value.color = (*data['color'][i*size:i*size+3], data['color'][i*size+3] if size == 4 else 1)
-    if data.get('normal'):
+    if data.get('normal') and not flat:
         n = data['normal']
         for polygon in mesh.polygons:
             polygon.use_smooth = True
@@ -221,14 +222,30 @@ def visible(obj, value, frame):
 # just outside the nose and the model's existing single rear BrakeLight strip.
 # Parent coordinates stay in Three.js axes; BASIS is applied once to the chassis.
 FRONT_MOUNTS = ((-0.235, -0.285, 1.65), (0.235, -0.285, 1.65))
-REAR_MOUNT = (0.0, -0.119, -1.90)
+# Actual BrakeLight surface from the shipped car.glb, in chassis coordinates.
+# Offset along its outward normal, rather than placing a rectangle behind it.
+REAR_SURFACE = (
+    (-0.2519213, -0.0887070, -1.8526173),
+    (0.2519213, -0.0887070, -1.8526173),
+    (0.2519213, -0.1314953, -1.8680754),
+    (0.1259610, -0.1492632, -1.8744944),
+    (-0.1259610, -0.1492632, -1.8744944),
+    (-0.2519213, -0.1314953, -1.8680754),
+)
+REAR_NORMAL = Vector((0.0, 0.339777, -0.940506)).normalized()
+REAR_CENTER = Vector((0.0, -0.1189851, -1.86355585))
+REAR_MOUNT = REAR_CENTER + REAR_NORMAL * 0.001
 car_rigs = {}
 light_animation = []
 
 def lens(collection, parent, lamp, name, width, height):
     mesh = bpy.data.meshes.new(name + ' Lens')
-    mesh.from_pydata([(-width/2,-height/2,0), (width/2,-height/2,0),
-                      (width/2,height/2,0), (-width/2,height/2,0)], [], [(0,1,2,3)])
+    if lamp.data.type == 'AREA':
+        mesh.from_pydata([Vector(point) - REAR_CENTER for point in REAR_SURFACE], [],
+                         [tuple(range(len(REAR_SURFACE)))])
+    else:
+        mesh.from_pydata([(-width/2,-height/2,0), (width/2,-height/2,0),
+                          (width/2,height/2,0), (-width/2,height/2,0)], [], [(0,1,2,3)])
     obj = bpy.data.objects.new(name + ' Lens', mesh)
     collection.objects.link(obj)
     obj.parent = parent
@@ -283,7 +300,7 @@ def make_car_rig(car):
             data.shadow_soft_size = 0.025
         lamp = bpy.data.objects.new(title, data)
         collection.objects.link(lamp); lamp.parent = root; lamp.location = position
-        direction = Vector((0, 0, -1) if rear else (0, -0.035, 1))
+        direction = REAR_NORMAL if rear else Vector((0, -0.035, 1))
         lamp.rotation_mode = 'QUATERNION'
         lamp.rotation_quaternion = direction.to_track_quat('-Z', 'Y')
         lamps.append(lamp)
@@ -341,7 +358,9 @@ for frame in range(1, DATA['frameCount'] + 1):
         key = (item['id'], item['geometry'], tuple(item['materials']))
         seen.add(key)
         if key not in objects:
-            obj = bpy.data.objects.new(item['name'], get_mesh(item['geometry'], item['materials']))
+            # Native car parts retain these model names, including wheel/exhaust styles.
+            flat = re.fullmatch(r'(Body|Suspension|Wheel\d*|Exhaust\d*)(?:[._]\d+)?', item['name']) is not None
+            obj = bpy.data.objects.new(item['name'], get_mesh(item['geometry'], item['materials'], flat))
             scene.collection.objects.link(obj)
             obj['polyviewer_id'] = item['id']
             objects[key] = obj
