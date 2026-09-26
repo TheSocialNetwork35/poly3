@@ -1,4 +1,5 @@
-import { Zip, ZipDeflate, strToU8 } from "fflate";
+import { Zip, strToU8 } from "fflate";
+import { ReleasingZipDeflate } from "./ReleasingZipDeflate";
 import type { Scene, PerspectiveCamera } from "three";
 import { snapshotCarLights } from "./CarLights";
 import { jsonChunks } from "./JsonChunks";
@@ -36,11 +37,11 @@ export async function exportBlender(
     if (error) throw error;
     bytes += data.byteLength;
     if (bytes > limit) throw new Error("Blender archive exceeds 512 MiB. Export a shorter range.");
-    chunks.push(new Uint8Array(data).buffer);
+    chunks.push(new Blob([new Uint8Array(data).buffer]));
   });
   function add(name: string, parts: string | Iterable<string>) {
     signal.throwIfAborted();
-    const file = new ZipDeflate(name, { level: 3 });
+    const file = new ReleasingZipDeflate(name);
     zip.add(file);
     for (const part of typeof parts === "string" ? [parts] : parts) {
       signal.throwIfAborted();
