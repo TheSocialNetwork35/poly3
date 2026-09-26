@@ -84,6 +84,7 @@ for rig in rigs.values():
     assert abs(distance - .001) < 2e-6, ('Rear lamp clearance', distance)
 for rig in rigs.values():
     rear_material = rig[2][2].data.materials[0]
+    assert abs(rig[1][2].data.spread - math.radians(120)) < 1e-6
     assert rear_material.node_tree.animation_data is None, 'Rear material must not animate'
 assert len([o for o in scene.objects if o.type=='LIGHT'])==6
 for frame, brake_a, brake_b, visible_b in [(1,0,150,True),(1.5,0,150,True),(2,300,0,True),(2.5,300,0,True),(3,0,0,False),(4,0,150,True)]:

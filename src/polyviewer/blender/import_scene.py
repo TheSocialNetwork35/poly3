@@ -295,6 +295,7 @@ def make_car_rig(car):
         data.energy = 0.0
         if rear:
             data.shape = 'RECTANGLE'; data.size = 0.48; data.size_y = 0.055
+            data.spread = math.radians(120)
         else:
             data.spot_size = math.radians(52); data.spot_blend = 0.55
             data.shadow_soft_size = 0.025
