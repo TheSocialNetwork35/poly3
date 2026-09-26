@@ -1,4 +1,5 @@
 import "./styles.css";
+import { exportBlender } from "./polyviewer/blender/BlenderExporter";
 import { ShaderPanel } from "./polyviewer/ui/ShaderPanel";
 import { ShaderSession } from "./polyviewer/shaders/ShaderSession";
 import { CameraKeyframeStore } from "./polyviewer/camera/CameraKeyframeStore";
@@ -241,7 +242,6 @@ void waitForPolyTrackBridge()
       } finally { replayBridge!.releaseRenderPreparation(); }
     };
     exportBlenderScene = async (settings, signal, onProgress, onPreparationProgress) => {
-      const { exportBlender } = await import("./polyviewer/blender/BlenderExporter");
       return exportBlender(bridge, frameRenderer, replayBridge!, cameraPoints.points, settings, signal, onProgress, onPreparationProgress);
     };
     shell.toggleButton.addEventListener("click", () => cameraController?.toggle());
