@@ -39,6 +39,20 @@ describe("20-car Blender ZIP export regression", () => {
     const files=unzipSync(new Uint8Array(await blob.arrayBuffer()));
     const read=(name: string)=>JSON.parse(strFromU8(files[name]!));
     const manifest=read("scene.json");
+    expect(strFromU8(files["Import-Blender.command"]!)).toContain("#!/bin/bash");
+    expect(strFromU8(files["Import-Blender.cmd"]!)).toContain("--python-exit-code 1");
+    const zipBytes = Buffer.from(await blob.arrayBuffer());
+    const signature = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+    let foundExecutable = false;
+    for (let offset = zipBytes.indexOf(signature); offset >= 0; offset = zipBytes.indexOf(signature, offset + 4)) {
+      const nameLength = zipBytes.readUInt16LE(offset + 28);
+      if (zipBytes.subarray(offset + 46, offset + 46 + nameLength).toString() === "Import-Blender.command") {
+        expect(zipBytes[offset + 5]).toBe(3);
+        expect(zipBytes.readUInt32LE(offset + 38) >>> 16).toBe(0o100755);
+        foundExecutable = true;
+      }
+    }
+    expect(foundExecutable).toBe(true);
     expect(manifest.frameCount).toBe(312);
     expect(manifest.geometries).toBeUndefined();
     expect(files["scene.json"]!.byteLength).toBeLessThan(1_000_000);

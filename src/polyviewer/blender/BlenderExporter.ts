@@ -5,6 +5,8 @@ import { snapshotCarLights } from "./CarLights";
 import { jsonChunks } from "./JsonChunks";
 import { SceneArchive } from "./SceneArchive";
 import importer from "./import_scene.py?raw";
+import macLauncher from "./Import-Blender.command?raw";
+import windowsLauncher from "./Import-Blender.cmd?raw";
 import type { DeterministicFrameRenderer, FrameRenderSettings } from "../render/DeterministicFrameRenderer";
 import type { ReplayBridge } from "../replay/ReplayBridge";
 import type { CameraKeyframe } from "../camera/CameraKeyframeStore";
@@ -39,9 +41,10 @@ export async function exportBlender(
     if (bytes > limit) throw new Error("Blender archive exceeds 512 MiB. Export a shorter range.");
     chunks.push(new Blob([new Uint8Array(data).buffer]));
   });
-  function add(name: string, parts: string | Iterable<string>) {
+  function add(name: string, parts: string | Iterable<string>, executable = false) {
     signal.throwIfAborted();
     const file = new ReleasingZipDeflate(name);
+    if (executable) { file.os = 3; file.attrs = 0o100755 * 65536; }
     zip.add(file);
     for (const part of typeof parts === "string" ? [parts] : parts) {
       signal.throwIfAborted();
@@ -76,7 +79,9 @@ export async function exportBlender(
       cameraPoints, resourceFiles, warnings: [...archive.warnings],
     }));
     add("import_scene.py", importer);
-    add("README.txt", `PolyViewer Blender scene\n\n1. Extract the entire ZIP into a folder.\n2. In Blender (4.2+), open Scripting, open import_scene.py, then Run Script.\n3. A NEW scene is created; save the result as .blend. Textures are packed.\n\nTransforms and camera FOV are baked at ${settings.fps} FPS. Between sampled frames Blender interpolates linearly. Camera-point source data is stored on the scene.\nKeep the resources/ folder beside scene.json and frames/. PolyTrack projected shadow meshes are omitted; Blender lights produce real shadows.\nLighting: World Properties > PolyViewer World > Background > Strength starts at 0. Scene sun is in PolyViewer Lighting. Vehicle lamps are in PolyViewer Car Lights: two Headlights and one Brake Light per car. Brake energy is keyed from the recorded brake input. Use Rendered shading, or enable Scene Lights and Scene World in Material Preview. Edit powers near the top of import_scene.py before running.\nCustom game shaders cannot render identically in Cycles. This is not a fluid/volume simulation export.\n\n${[...archive.warnings].join("\n")}\n`);
+    add("Import-Blender.command", macLauncher, true);
+    add("Import-Blender.cmd", windowsLauncher.replace(/\r?\n/g, "\r\n"));
+    add("README.txt", `PolyViewer Blender scene\n\n1. Extract the entire ZIP into a folder.\n2. Install Blender 4.2+. Double-click Import-Blender.command on macOS or Import-Blender.cmd on Windows. Blender opens and imports automatically. If macOS reports a permission error, open Terminal, type bash followed by a space, drag Import-Blender.command into the window and press Return. If the OS blocks the downloaded script, you can instead open import_scene.py in Blender > Scripting and Run Script.\n3. A NEW scene is created; save the result as .blend. Textures are packed.\n\nTransforms and camera FOV are baked at ${settings.fps} FPS. Between sampled frames Blender interpolates linearly. Camera-point source data is stored on the scene.\nKeep the resources/ folder beside scene.json and frames/. PolyTrack projected shadow meshes are omitted; Blender lights produce real shadows.\nLighting: World Properties > PolyViewer World > Background > Strength starts at 0. Scene sun is in PolyViewer Lighting. Vehicle lamps are in PolyViewer Car Lights: two Headlights and one Brake Light per car. Brake energy is keyed from the recorded brake input. Use Rendered shading, or enable Scene Lights and Scene World in Material Preview. Edit powers near the top of import_scene.py before running.\nCustom game shaders cannot render identically in Cycles. This is not a fluid/volume simulation export.\n\n${[...archive.warnings].join("\n")}\n`);
     zip.end();
     return new Blob(chunks, { type: "application/zip" });
   } finally {
